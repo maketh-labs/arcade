@@ -17,8 +17,9 @@ interface IArcade {
         bytes32 s;
     }
 
+    function balance(address currency, address user) external view returns (uint256 available, uint256 locked);
     function deposit(address currency, address user, uint256 amount) external;
-    function withdraw(address currency, address user, uint256 amount) external;
+    function withdraw(address currency, uint256 amount) external;
     function lock(Puzzle calldata puzzle, Signature calldata signature, uint256 toll) external;
     function unlock(Puzzle calldata puzzle, Signature calldata signature) external;
     function solve(Puzzle calldata puzzle, Signature calldata signature, uint256 solution) external;
