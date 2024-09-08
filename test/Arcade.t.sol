@@ -40,7 +40,6 @@ contract ArcadeTest is Test {
         (available, locked) = _deposit(address(token), gamer1, 0.2 ether);
     }
 
-
     function testWithdraw() public {
         _deposit(address(token), gamer1, 1 ether);
         _withdraw(address(token), gamer1, 1 ether);
@@ -49,7 +48,10 @@ contract ArcadeTest is Test {
         arcade.withdraw(address(token), 1 ether);
     }
 
-    function _deposit(address currency, address gamer, uint256 amount) private returns (uint256 available, uint256 locked) {
+    function _deposit(address currency, address gamer, uint256 amount)
+        private
+        returns (uint256 available, uint256 locked)
+    {
         (uint256 prevAvailable, uint256 prevLocked) = arcade.balance(currency, gamer);
         token.mint(gamer, amount);
         vm.startPrank(gamer);
@@ -61,7 +63,10 @@ contract ArcadeTest is Test {
         assertEq(locked, prevLocked);
     }
 
-    function _withdraw(address currency, address gamer, uint256 amount) private returns (uint256 available, uint256 locked) {
+    function _withdraw(address currency, address gamer, uint256 amount)
+        private
+        returns (uint256 available, uint256 locked)
+    {
         (uint256 prevAvailable, uint256 prevLocked) = arcade.balance(currency, gamer);
         vm.prank(gamer);
         arcade.withdraw(currency, amount);
