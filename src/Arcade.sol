@@ -5,13 +5,12 @@ import {IArcade} from "./interface/IArcade.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 
-contract Arcade is IArcade, Multicall {
+contract Arcade is IArcade, Multicall, EIP712 {
     using SafeERC20 for IERC20;
-    using MessageHashUtils for bytes32;
 
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
@@ -21,13 +20,15 @@ contract Arcade is IArcade, Multicall {
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
             !SignatureChecker.isValidSignatureNow(
-                puzzle.creator, keccak256(abi.encode(puzzle)).toEthSignedMessageHash(), signature
+                puzzle.creator, _hashTypedDataV4(keccak256(abi.encode(puzzle))), signature
             )
         ) {
             revert();
         }
         _;
     }
+
+    constructor() EIP712("Arcade", "1") {}
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
         available = availableBalanceOf[currency][user];
@@ -44,7 +45,7 @@ contract Arcade is IArcade, Multicall {
         IERC20(currency).safeTransfer(msg.sender, amount);
     }
 
-    function lock(Puzzle calldata puzzle, bytes calldata signature, uint256 toll, bytes calldata data)
+    function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll, bytes calldata data)
         external
         validatePuzzle(puzzle, signature)
     {
@@ -116,5 +117,17 @@ contract Arcade is IArcade, Multicall {
         availableBalanceOf[puzzle.currency][player] += reward;
     }
 
-    // TODO: cancel intent.
+    function invalidate(Puzzle calldata puzzle, bytes calldata signature) external validatePuzzle(puzzle, signature) {
+        // Make sure the creator is invalidating the puzzle.
+        if (msg.sender != puzzle.creator) {
+            revert();
+        }
+        bytes32 puzzleId = keccak256(abi.encode(puzzle));
+        // Make sure the game isn't being played.
+        if (statusOf[puzzleId] != 0) {
+            revert();
+        }
+        // `coin` and `solve` will revert.
+        statusOf[puzzleId] = 1;
+    }
 }
