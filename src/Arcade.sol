@@ -77,9 +77,13 @@ contract Arcade is IArcade, Multicall, EIP712 {
     function expire(Puzzle calldata puzzle, bytes calldata signature) external validatePuzzle(puzzle, signature) {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
+        address player;
+        assembly {
+            player := shr(96, status)
+        }
 
-        // Make sure game has expired.
-        if (uint96(block.timestamp) > uint96(status)) {
+        // Make sure game has expired or it's being initiated by the player.
+        if (uint96(block.timestamp) > uint96(status) && msg.sender != player) {
             revert();
         }
 
