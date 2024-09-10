@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {IArcade} from "./interface/IArcade.sol";
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {IArcade} from "./interface/IArcade.sol";
 import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 
-contract Arcade is IArcade, Multicall, EIP712 {
+contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     using SafeERC20 for IERC20;
 
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
@@ -28,7 +29,7 @@ contract Arcade is IArcade, Multicall, EIP712 {
         _;
     }
 
-    constructor() EIP712("Arcade", "1") {}
+    constructor(address _owner) Ownable(_owner) EIP712("Arcade", "1") {}
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
         available = availableBalanceOf[currency][user];

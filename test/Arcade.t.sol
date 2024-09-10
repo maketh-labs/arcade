@@ -24,10 +24,11 @@ contract ArcadeTest is Test {
     Arcade public arcade;
     Token public token;
 
+    address public protocol = makeAddr("protocol");
     address public gamer1 = makeAddr("1");
 
     function setUp() public {
-        arcade = new Arcade();
+        arcade = new Arcade(protocol);
         token = new Token();
     }
 
