@@ -13,6 +13,9 @@ import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     using SafeERC20 for IERC20;
 
+    uint256 public constant FEE_PRECISION = 100000;
+
+    uint256 public fee = 10000; // initial fee 100 bps
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player + expiry timestamp
@@ -50,8 +53,19 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         external
         validatePuzzle(puzzle, signature)
     {
-        // Collect toll from player. TODO: use availableBalanceOf first.
-        IERC20(puzzle.currency).transferFrom(msg.sender, address(this), toll);
+        // Collect toll from player.
+        uint256 available = availableBalanceOf[puzzle.currency][msg.sender];
+        if (toll > available) {
+            IERC20(puzzle.currency).transferFrom(msg.sender, address(this), toll - available);
+            availableBalanceOf[puzzle.currency][msg.sender] = 0;
+        } else {
+            availableBalanceOf[puzzle.currency][msg.sender] -= toll;
+        }
+
+        uint256 protocolFee = toll * fee / FEE_PRECISION;
+        availableBalanceOf[puzzle.currency][owner()] += protocolFee;
+        availableBalanceOf[puzzle.currency][puzzle.creator] += toll - protocolFee;
+
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
@@ -118,8 +132,10 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Settle reward.
         uint256 reward = rewardOf[puzzleId];
+        uint256 protocolFee = reward * fee / FEE_PRECISION;
         lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
-        availableBalanceOf[puzzle.currency][player] += reward;
+        availableBalanceOf[puzzle.currency][owner()] += protocolFee;
+        availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
     }
 
     function invalidate(Puzzle calldata puzzle, bytes calldata signature) external validatePuzzle(puzzle, signature) {
@@ -134,5 +150,12 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         }
         // `coin` and `solve` will revert.
         statusOf[puzzleId] = 1;
+    }
+
+    function setFee(uint256 _fee) external onlyOwner {
+        if (_fee < FEE_PRECISION) {
+            revert();
+        }
+        fee = _fee;
     }
 }
