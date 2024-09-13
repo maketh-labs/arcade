@@ -88,7 +88,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
         if (statusOf[puzzleId] != 0) {
-            revert();
+            revert("Arcade: Puzzle already created");
         }
 
         // Handle reward. Lock reward amount.
@@ -117,7 +117,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Make sure game has expired or it's being initiated by the player.
         if (uint96(block.timestamp) > uint96(status) && msg.sender != player) {
-            revert();
+            revert("Arcade: Only player can expire the puzzle before expiry");
         }
 
         // Unfreeze assets.

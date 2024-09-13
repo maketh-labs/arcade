@@ -31,6 +31,7 @@ contract ArcadeTest is Test {
     address public creator;
     uint256 public creatorPrivateKey;
     address public gamer1 = makeAddr("1");
+    address public gamer2 = makeAddr("2");
 
     function setUp() public {
         arcade = new Arcade(protocol);
@@ -142,6 +143,34 @@ contract ArcadeTest is Test {
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
         assertEq(gamerAvailable, toll * 3 - toll * 3 / 100, "Gamer should receive reward minus protocol fee");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
+    }
+
+    function testSolveIncorrect() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        // Solve with incorrect solution.
+        bytes32 incorrectSolution = keccak256(abi.encode(42));
+        vm.expectRevert("Arcade: Incorrect solution");
+        arcade.solve(puzzle, incorrectSolution);
+        vm.stopPrank();
+
+        // Solve with different player.
+        vm.startPrank(gamer2);
+        vm.expectRevert("Arcade: Only player can solve the puzzle");
+        arcade.solve(puzzle, solution);
+        vm.stopPrank();
+
+        // Solve after expiry.
+        vm.warp(block.timestamp + 2 hours);
+        vm.prank(gamer1);
+        vm.expectRevert("Arcade: Puzzle has expired");
+        arcade.solve(puzzle, solution);
     }
 
     function _deposit(address currency, address gamer, uint256 amount)
