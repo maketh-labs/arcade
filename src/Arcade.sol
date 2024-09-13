@@ -107,7 +107,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         statusOf[puzzleId] = status;
     }
 
-    function expire(Puzzle calldata puzzle, bytes calldata signature) external validatePuzzle(puzzle, signature) {
+    function expire(Puzzle calldata puzzle) external {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
@@ -126,16 +126,13 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         availableBalanceOf[puzzle.currency][puzzle.creator] += reward;
     }
 
-    function solve(Puzzle calldata puzzle, bytes calldata signature, uint256 solution)
-        external
-        validatePuzzle(puzzle, signature)
-    {
+    function solve(Puzzle calldata puzzle, bytes32 solution) external {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
 
         // Make sure game hasn't expired.
         if (uint96(block.timestamp) > uint96(status)) {
-            revert();
+            revert("Arcade: Puzzle has expired");
         }
 
         address player;
@@ -143,9 +140,14 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             player := shr(96, status)
         }
 
+        // Make sure the player is solving the puzzle.
+        if (player != msg.sender) {
+            revert("Arcade: Only player can solve the puzzle");
+        }
+
         // Make sure the solution is correct.
-        if (puzzle.answer != keccak256(abi.encode(solution, puzzle.problem))) {
-            revert();
+        if (puzzle.answer != keccak256(abi.encode(puzzle.problem, solution))) {
+            revert("Arcade: Incorrect solution");
         }
 
         // Settle reward.
@@ -156,7 +158,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
     }
 
-    function invalidate(Puzzle calldata puzzle, bytes calldata signature) external validatePuzzle(puzzle, signature) {
+    function invalidate(Puzzle calldata puzzle) external {
         // Make sure the creator is invalidating the puzzle.
         if (msg.sender != puzzle.creator) {
             revert();

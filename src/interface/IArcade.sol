@@ -17,7 +17,7 @@ interface IArcade {
     function deposit(address currency, address user, uint256 amount) external;
     function withdraw(address currency, uint256 amount) external;
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external;
-    function expire(Puzzle calldata puzzle, bytes calldata signature) external;
-    function solve(Puzzle calldata puzzle, bytes calldata signature, uint256 solution) external;
-    function invalidate(Puzzle calldata puzzle, bytes calldata signature) external;
+    function expire(Puzzle calldata puzzle) external;
+    function solve(Puzzle calldata puzzle, bytes32 solution) external;
+    function invalidate(Puzzle calldata puzzle) external;
 }

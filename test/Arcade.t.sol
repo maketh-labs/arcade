@@ -124,6 +124,26 @@ contract ArcadeTest is Test {
         assertEq(gamerLocked, 0, "Gamer locked 3");
     }
 
+    function testSolve() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        arcade.solve(puzzle, solution);
+        vm.stopPrank();
+
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
+        (, uint256 creatorLocked) = arcade.balance(address(token), creator);
+
+        assertEq(creatorLocked, 0, "Creator should have no locked balance");
+        assertEq(gamerAvailable, toll * 3 - toll * 3 / 100, "Gamer should receive reward minus protocol fee");
+        assertEq(gamerLocked, 0, "Gamer should have no locked balance");
+    }
+
     function _deposit(address currency, address gamer, uint256 amount)
         internal
         returns (uint256 available, uint256 locked)
