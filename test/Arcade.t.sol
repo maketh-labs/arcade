@@ -204,6 +204,40 @@ contract ArcadeTest is Test {
         vm.stopPrank();
     }
 
+    function testExpire() public {
+        // Test expire after timelapse.
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 2 hours);
+        arcade.expire(puzzle);
+
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
+
+        // Test expire by player.
+        (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
+        (puzzle, signature, solution) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        arcade.expire(puzzle);
+        vm.stopPrank();
+        (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
+    }
+
     function _deposit(address currency, address gamer, uint256 amount)
         internal
         returns (uint256 available, uint256 locked)

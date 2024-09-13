@@ -17,6 +17,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,address rewardPolicy,bytes rewardData)"
     );
+    uint256 private constant INVALIDATED = type(uint256).max;
 
     uint256 public fee = 1000; // initial fee 100 bps
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
@@ -88,7 +89,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
         if (statusOf[puzzleId] != 0) {
-            if (statusOf[puzzleId] == 1) {
+            if (statusOf[puzzleId] == INVALIDATED) {
                 revert("Arcade: Puzzle invalidated");
             } else {
                 revert("Arcade: Puzzle already coined");
@@ -120,7 +121,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         }
 
         // Make sure game has expired or it's being initiated by the player.
-        if (uint96(block.timestamp) > uint96(status) && msg.sender != player) {
+        if (uint96(status) > uint96(block.timestamp) && msg.sender != player) {
             revert("Arcade: Only player can expire the puzzle before expiry");
         }
 
@@ -173,7 +174,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             revert("Arcade: Puzzle already coined");
         }
         // `coin` and `solve` will revert.
-        statusOf[puzzleId] = 1;
+        statusOf[puzzleId] = INVALIDATED;
     }
 
     function setFee(uint256 _fee) external onlyOwner {
