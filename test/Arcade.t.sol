@@ -59,11 +59,15 @@ contract ArcadeTest is Test {
     }
 
     function testCoin() public {
+        /// Pay with token transfer.
+        // Setup.
         (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
-        
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) = _createPuzzle(3, 0.1 ether, 0.2 ether);
-        
+
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
         uint256 toll = 0.1 ether;
+        uint256 protocolFee = toll / 100;
         token.mint(gamer1, toll);
         vm.startPrank(gamer1);
         token.approve(address(arcade), toll);
@@ -72,11 +76,52 @@ contract ArcadeTest is Test {
 
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
-        uint256 protocolFee = toll / 100;
-        assertEq(creatorAvailable, prevCreatorAvailable + toll - protocolFee - toll * 3, "Creator available");
-        assertEq(creatorLocked, prevCreatorLocked + toll * 3, "Creator locked");
-        assertEq(gamerAvailable, 0, "Gamer available");
-        assertEq(gamerLocked, 0, "Gamer locked");
+
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - protocolFee - toll * 3, "Creator available 1");
+        assertEq(creatorLocked, prevCreatorLocked + toll * 3, "Creator locked 1");
+        assertEq(gamerAvailable, 0, "Gamer available 1");
+        assertEq(gamerLocked, 0, "Gamer locked 1");
+
+        /// Pay with deposits.
+        (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
+
+        (puzzle, signature, solution) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        toll = 0.2 ether;
+        protocolFee = toll / 100;
+        _deposit(address(token), gamer1, 0.3 ether);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+
+        (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
+        (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
+
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - protocolFee - toll * 3, "Creator available 2");
+        assertEq(creatorLocked, prevCreatorLocked + toll * 3, "Creator locked 2");
+        assertEq(gamerAvailable, 0.1 ether, "Gamer available 2");
+        assertEq(gamerLocked, 0, "Gamer locked 2");
+
+        /// Pay with a mix of both.
+        (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
+        (puzzle, signature, solution) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        toll = 0.15 ether;
+        protocolFee = toll / 100;
+        token.mint(gamer1, 0.05 ether);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+
+        (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
+        (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
+
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - protocolFee - toll * 3, "Creator available 3");
+        assertEq(creatorLocked, prevCreatorLocked + toll * 3, "Creator locked 3");
+        assertEq(gamerAvailable, 0, "Gamer available 3");
+        assertEq(gamerLocked, 0, "Gamer locked 3");
     }
 
     function _deposit(address currency, address gamer, uint256 amount)
@@ -126,7 +171,7 @@ contract ArcadeTest is Test {
             timeLimit: 3600,
             currency: address(token),
             rewardPolicy: rewardPolicy,
-            rewardData: abi.encode(3 * 100_000, 0.1 ether, 0.2 ether)
+            rewardData: abi.encode(multiplier, tollMinimum, tollMaximum)
         });
 
         signature = _signPuzzle(puzzle);
