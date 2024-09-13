@@ -14,8 +14,11 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     using SafeERC20 for IERC20;
 
     uint256 public constant FEE_PRECISION = 100000;
+    bytes32 public constant PUZZLE_TYPEHASH = keccak256(
+        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,address rewardPolicy,bytes rewardData)"
+    );
 
-    uint256 public fee = 10000; // initial fee 100 bps
+    uint256 public fee = 1000; // initial fee 100 bps
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player + expiry timestamp
@@ -24,7 +27,22 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
             !SignatureChecker.isValidSignatureNow(
-                puzzle.creator, _hashTypedDataV4(keccak256(abi.encode(puzzle))), signature
+                puzzle.creator,
+                _hashTypedDataV4(
+                    keccak256(
+                        abi.encode(
+                            PUZZLE_TYPEHASH,
+                            puzzle.creator,
+                            puzzle.problem,
+                            puzzle.answer,
+                            puzzle.timeLimit,
+                            puzzle.currency,
+                            puzzle.rewardPolicy,
+                            keccak256(puzzle.rewardData)
+                        )
+                    )
+                ),
+                signature
             )
         ) {
             revert();
@@ -49,7 +67,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         IERC20(currency).safeTransfer(msg.sender, amount);
     }
 
-    function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll, bytes calldata data)
+    function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
         external
         validatePuzzle(puzzle, signature)
     {
@@ -74,7 +92,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         }
 
         // Handle reward. Lock reward amount.
-        uint256 reward = IRewardPolicy(puzzle.rewardPolicy).reward(toll, data);
+        uint256 reward = IRewardPolicy(puzzle.rewardPolicy).reward(toll, puzzle.rewardData);
         rewardOf[puzzleId] = reward;
         availableBalanceOf[puzzle.currency][puzzle.creator] -= reward;
         lockedBalanceOf[puzzle.currency][puzzle.creator] += reward;
