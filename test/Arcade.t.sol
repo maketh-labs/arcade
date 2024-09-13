@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {MockERC20} from "forge-std/mocks/MockERC20.sol";
 import {stdError} from "forge-std/StdError.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Arcade, IArcade} from "../src/Arcade.sol";
 import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
 
@@ -36,6 +37,8 @@ contract ArcadeTest is Test {
         token = new Token();
         rewardPolicy = address(new MulRewardPolicy());
         (creator, creatorPrivateKey) = makeAddrAndKey("creator");
+
+        _deposit(address(token), creator, 100_000_000 ether);
     }
 
     function testDeposit() public {
@@ -56,40 +59,24 @@ contract ArcadeTest is Test {
     }
 
     function testCoin() public {
-        uint256 amount = 1 ether;
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
+        
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) = _createPuzzle(3, 0.1 ether, 0.2 ether);
+        
         uint256 toll = 0.1 ether;
-        token.mint(creator, amount);
-        vm.startPrank(creator);
-        token.approve(address(arcade), amount);
-        arcade.deposit(address(token), creator, amount);
-        vm.stopPrank();
         token.mint(gamer1, toll);
-        vm.prank(gamer1);
+        vm.startPrank(gamer1);
         token.approve(address(arcade), toll);
-
-        bytes32 problem = keccak256("What is 2+2?");
-        bytes32 solution = keccak256(abi.encode(4));
-        bytes32 answer = keccak256(abi.encode(problem, solution));
-
-        IArcade.Puzzle memory puzzle = IArcade.Puzzle({
-            creator: creator,
-            problem: problem,
-            answer: answer,
-            timeLimit: 3600,
-            currency: address(token),
-            rewardPolicy: rewardPolicy,
-            rewardData: abi.encode(3 * 100_000, 0.1 ether, 0.2 ether)
-        });
-
-        bytes memory signature = _signPuzzle(puzzle);
-
-        vm.prank(gamer1);
         arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
 
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         uint256 protocolFee = toll / 100;
-        assertEq(creatorAvailable, amount + toll - toll * 3 - protocolFee);
-        assertEq(creatorLocked, toll * 3);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - protocolFee - toll * 3, "Creator available");
+        assertEq(creatorLocked, prevCreatorLocked + toll * 3, "Creator locked");
+        assertEq(gamerAvailable, 0, "Gamer available");
+        assertEq(gamerLocked, 0, "Gamer locked");
     }
 
     function _deposit(address currency, address gamer, uint256 amount)
@@ -117,6 +104,32 @@ contract ArcadeTest is Test {
         (available, locked) = arcade.balance(currency, gamer);
         assertEq(available, prevAvailable - amount);
         assertEq(locked, prevLocked);
+    }
+
+    uint256 private _puzzle_nonce = 0;
+
+    function _createPuzzle(uint256 multiplier, uint256 tollMinimum, uint256 tollMaximum)
+        internal
+        returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution)
+    {
+        string memory problemText = string(abi.encodePacked("What is 2+", Strings.toString(_puzzle_nonce), "?"));
+        bytes32 problem = keccak256(bytes(problemText));
+        solution = keccak256(abi.encode(2 + _puzzle_nonce));
+        bytes32 answer = keccak256(abi.encode(problem, solution));
+
+        _puzzle_nonce++;
+
+        puzzle = IArcade.Puzzle({
+            creator: creator,
+            problem: problem,
+            answer: answer,
+            timeLimit: 3600,
+            currency: address(token),
+            rewardPolicy: rewardPolicy,
+            rewardData: abi.encode(3 * 100_000, 0.1 ether, 0.2 ether)
+        });
+
+        signature = _signPuzzle(puzzle);
     }
 
     function _getDomainSeparator() internal view returns (bytes32) {
