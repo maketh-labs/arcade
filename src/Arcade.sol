@@ -88,7 +88,11 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
         if (statusOf[puzzleId] != 0) {
-            revert("Arcade: Puzzle already created");
+            if (statusOf[puzzleId] == 1) {
+                revert("Arcade: Puzzle invalidated");
+            } else {
+                revert("Arcade: Puzzle already coined");
+            }
         }
 
         // Handle reward. Lock reward amount.
@@ -161,12 +165,12 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     function invalidate(Puzzle calldata puzzle) external {
         // Make sure the creator is invalidating the puzzle.
         if (msg.sender != puzzle.creator) {
-            revert();
+            revert("Arcade: Only creator can invalidate the puzzle");
         }
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         // Make sure the game isn't being played.
         if (statusOf[puzzleId] != 0) {
-            revert();
+            revert("Arcade: Puzzle already coined");
         }
         // `coin` and `solve` will revert.
         statusOf[puzzleId] = 1;

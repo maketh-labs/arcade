@@ -173,6 +173,37 @@ contract ArcadeTest is Test {
         arcade.solve(puzzle, solution);
     }
 
+    function testInvalidate() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        vm.prank(gamer1);
+        vm.expectRevert("Arcade: Only creator can invalidate the puzzle");
+        arcade.invalidate(puzzle);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+
+        vm.prank(creator);
+        vm.expectRevert("Arcade: Puzzle already coined");
+        arcade.invalidate(puzzle);
+
+        (puzzle, signature, solution) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        vm.prank(creator);
+        arcade.invalidate(puzzle);
+
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+    }
+
     function _deposit(address currency, address gamer, uint256 amount)
         internal
         returns (uint256 available, uint256 locked)
