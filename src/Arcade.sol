@@ -61,11 +61,13 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     function deposit(address currency, address user, uint256 amount) external {
         IERC20(currency).safeTransferFrom(msg.sender, address(this), amount);
         availableBalanceOf[currency][user] += amount;
+        emit Deposit(user, currency, amount);
     }
 
     function withdraw(address currency, uint256 amount) external {
         availableBalanceOf[currency][msg.sender] -= amount;
         IERC20(currency).safeTransfer(msg.sender, amount);
+        emit Withdraw(msg.sender, currency, amount);
     }
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
@@ -110,6 +112,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             status := add(shl(96, player), expiryTimestamp)
         }
         statusOf[puzzleId] = status;
+
+        emit Coin(puzzleId, puzzle.creator, player, toll, reward);
     }
 
     function expire(Puzzle calldata puzzle) external {
@@ -129,6 +133,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         uint256 reward = rewardOf[puzzleId];
         lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
         availableBalanceOf[puzzle.currency][puzzle.creator] += reward;
+
+        emit Expire(puzzleId);
     }
 
     function solve(Puzzle calldata puzzle, bytes32 solution) external {
@@ -161,6 +167,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
         availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
+
+        emit Solve(puzzleId);
     }
 
     function invalidate(Puzzle calldata puzzle) external {
@@ -175,6 +183,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         }
         // `coin` and `solve` will revert.
         statusOf[puzzleId] = INVALIDATED;
+
+        emit Invalidate(puzzleId);
     }
 
     function setFee(uint256 _fee) external onlyOwner {
