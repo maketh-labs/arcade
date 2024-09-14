@@ -8,8 +8,11 @@ contract MulRewardPolicy is IRewardPolicy {
 
     function reward(uint256 toll, bytes calldata data) external pure returns (uint256 amount) {
         (uint256 multiple, uint256 tollMinimum, uint256 tollMaximum) = abi.decode(data, (uint256, uint256, uint256));
+        if (multiple <= PRECISION) {
+            revert("MulRewardPolicy: multiple must be greater than 1");
+        }
         if (toll < tollMinimum || toll > tollMaximum) {
-            revert();
+            revert("MulRewardPolicy: toll is out of range");
         }
         amount = toll * multiple / PRECISION;
     }
