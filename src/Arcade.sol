@@ -15,7 +15,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
-        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,address rewardPolicy,bytes rewardData)"
+        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
     );
     uint256 private constant INVALIDATED = type(uint256).max;
 
@@ -38,6 +38,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
                             puzzle.answer,
                             puzzle.timeLimit,
                             puzzle.currency,
+                            puzzle.deadline,
                             puzzle.rewardPolicy,
                             keccak256(puzzle.rewardData)
                         )
@@ -74,6 +75,10 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         external
         validatePuzzle(puzzle, signature)
     {
+        if (uint96(block.timestamp) > puzzle.deadline) {
+            revert("Arcade: Puzzle deadline exceeded");
+        }
+
         // Collect toll from player.
         uint256 available = availableBalanceOf[puzzle.currency][msg.sender];
         if (toll > available) {

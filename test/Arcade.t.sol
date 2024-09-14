@@ -238,6 +238,15 @@ contract ArcadeTest is Test {
         assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
     }
 
+    function testDeadline() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        vm.warp(puzzle.deadline + 1);
+        vm.expectRevert("Arcade: Puzzle deadline exceeded");
+        arcade.coin(puzzle, signature, 0.1 ether);
+    }
+
     function _deposit(address currency, address gamer, uint256 amount)
         internal
         returns (uint256 available, uint256 locked)
@@ -284,6 +293,7 @@ contract ArcadeTest is Test {
             answer: answer,
             timeLimit: 3600,
             currency: address(token),
+            deadline: uint96(block.timestamp + 3600),
             rewardPolicy: rewardPolicy,
             rewardData: abi.encode(multiplier, tollMinimum, tollMaximum)
         });
@@ -313,6 +323,7 @@ contract ArcadeTest is Test {
                 puzzle.answer,
                 puzzle.timeLimit,
                 puzzle.currency,
+                puzzle.deadline,
                 puzzle.rewardPolicy,
                 keccak256(puzzle.rewardData)
             )

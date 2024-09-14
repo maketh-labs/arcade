@@ -16,6 +16,7 @@ interface IArcade {
         bytes32 answer;
         uint96 timeLimit;
         address currency;
+        uint96 deadline;
         address rewardPolicy;
         bytes rewardData;
     }
