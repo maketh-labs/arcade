@@ -1,0 +1,33 @@
+{
+  "name": "arcade",
+  "version": "1.0.0",
+  "description": "Asynchronous player versus puzzle gaming framework for EVM.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "forge t"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:maketh-labs/arcade.git"
+  },
+  "author": "MansaMaker",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maketh-labs/arcade/issues"
+  },
+  "homepage": "https://github.com/maketh-labs/arcade#readme",
+  "devDependencies": {
+    "@matterlabs/hardhat-zksync": "^1.1.0",
+    "@matterlabs/zksync-contracts": "^0.6.1",
+    "@nomicfoundation/hardhat-foundry": "^1.1.2",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/node": "^22.5.5",
+    "ethers": "^6.13.2",
+    "typescript": "^5.6.2",
+    "zksync-ethers": "^6.12.1"
+  }
+}

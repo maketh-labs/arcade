@@ -239,7 +239,7 @@ contract ArcadeTest is Test {
     }
 
     function testDeadline() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
             _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         vm.warp(puzzle.deadline + 1);

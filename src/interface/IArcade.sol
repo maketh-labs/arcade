@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 interface IArcade {
     event Deposit(address user, address currency, uint256 amount);
