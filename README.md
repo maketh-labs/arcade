@@ -1,24 +1,16 @@
-## Foundry
+## Arcade
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
+Arcade is an asynchronous player versus puzzle gaming framework for the EVM. Arcade also has supports zkSync compatibility.
 
 ## Usage
+
+To build for generic EVM, use `forge`. To build for zkSync, use `npx hardhat`.
 
 ### Build
 
 ```shell
-$ forge build
+$ forge build # for EVM
+$ npx hardhat compile --network abstractTestnet # for zkSync
 ```
 
 ### Test
@@ -46,9 +38,24 @@ $ anvil
 ```
 
 ### Deploy
-
+EVM, create a `.env` file with the following
+```dotenv
+DEPLOYER_PRIVATE_KEY=<deployer_private_key>
+PROTOCOL_OWNER=<protocol_owner_public_key>
+```
+and then run
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script --rpc-url <rpc_url> ./script/Deploy.s.sol --force --broadcast
+```
+
+For zkSync, set environment variables
+```shell
+$ npx hardhat vars set DEPLOYER_PRIVATE_KEY
+$ npx hardhat vars set PROTOCOL_OWNER
+```
+and then run
+```shell
+$ npx hardhat deploy-zksync --script deploy.ts
 ```
 
 ### Cast
