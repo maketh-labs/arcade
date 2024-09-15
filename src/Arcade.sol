@@ -47,7 +47,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
                 signature
             )
         ) {
-            revert();
+            revert("Arcade: Invalid puzzle");
         }
         _;
     }
