@@ -195,8 +195,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     }
 
     function setFee(uint256 _fee) external onlyOwner {
-        if (_fee < FEE_PRECISION) {
-            revert();
+        if (_fee >= FEE_PRECISION) {
+            revert("Arcade: Fee cannot be greater than or equal to 100%");
         }
         fee = _fee;
     }
