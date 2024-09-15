@@ -4,9 +4,18 @@ pragma solidity ^0.8.24;
 interface IArcade {
     event Deposit(address user, address currency, uint256 amount);
     event Withdraw(address user, address currency, uint256 amount);
-    event Coin(bytes32 puzzleId, address creator, address player, uint256 toll, uint256 reward);
+    event Coin(
+        bytes32 puzzleId,
+        address creator,
+        address player,
+        uint256 toll,
+        uint256 reward,
+        uint96 expiryTimestamp,
+        address currency,
+        uint256 protocolFee
+    );
     event Expire(bytes32 puzzleId);
-    event Solve(bytes32 puzzleId);
+    event Solve(bytes32 puzzleId, uint256 reward, uint256 protocolFee);
     event Invalidate(bytes32 puzzleId);
 
     // @notice Puzzles are created via intents.

@@ -79,18 +79,19 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             revert("Arcade: Puzzle deadline exceeded");
         }
 
+        address currency = puzzle.currency;
         // Collect toll from player.
-        uint256 available = availableBalanceOf[puzzle.currency][msg.sender];
+        uint256 available = availableBalanceOf[currency][msg.sender];
         if (toll > available) {
-            IERC20(puzzle.currency).transferFrom(msg.sender, address(this), toll - available);
-            availableBalanceOf[puzzle.currency][msg.sender] = 0;
+            IERC20(currency).transferFrom(msg.sender, address(this), toll - available);
+            availableBalanceOf[currency][msg.sender] = 0;
         } else {
-            availableBalanceOf[puzzle.currency][msg.sender] -= toll;
+            availableBalanceOf[currency][msg.sender] -= toll;
         }
 
         uint256 protocolFee = toll * fee / FEE_PRECISION;
-        availableBalanceOf[puzzle.currency][owner()] += protocolFee;
-        availableBalanceOf[puzzle.currency][puzzle.creator] += toll - protocolFee;
+        availableBalanceOf[currency][owner()] += protocolFee;
+        availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
 
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
 
@@ -106,19 +107,20 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         // Handle reward. Lock reward amount.
         uint256 reward = IRewardPolicy(puzzle.rewardPolicy).reward(toll, puzzle.rewardData);
         rewardOf[puzzleId] = reward;
-        availableBalanceOf[puzzle.currency][puzzle.creator] -= reward;
-        lockedBalanceOf[puzzle.currency][puzzle.creator] += reward;
+        availableBalanceOf[currency][puzzle.creator] -= reward;
+        lockedBalanceOf[currency][puzzle.creator] += reward;
 
         // Handle status. Pack player and expiry timestamp.
-        uint256 status;
         address player = msg.sender;
         uint96 expiryTimestamp = uint96(block.timestamp) + puzzle.timeLimit;
-        assembly {
-            status := add(shl(96, player), expiryTimestamp)
+        {
+            uint256 status;
+            assembly {
+                status := add(shl(96, player), expiryTimestamp)
+            }
+            statusOf[puzzleId] = status;
         }
-        statusOf[puzzleId] = status;
-
-        emit Coin(puzzleId, puzzle.creator, player, toll, reward);
+        emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency, protocolFee);
     }
 
     function expire(Puzzle calldata puzzle) external {
@@ -173,7 +175,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
         availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
 
-        emit Solve(puzzleId);
+        emit Solve(puzzleId, reward, protocolFee);
     }
 
     function invalidate(Puzzle calldata puzzle) external {
