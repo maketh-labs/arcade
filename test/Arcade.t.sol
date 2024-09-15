@@ -7,6 +7,7 @@ import {stdError} from "forge-std/StdError.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Arcade, IArcade} from "../src/Arcade.sol";
 import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
+import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
 
 contract Token is MockERC20 {
     constructor() {
@@ -26,6 +27,7 @@ contract ArcadeTest is Test {
     Arcade public arcade;
     Token public token;
     address public rewardPolicy;
+    address public giveawayPolicy;
 
     address public protocol = makeAddr("protocol");
     address public creator;
@@ -37,6 +39,7 @@ contract ArcadeTest is Test {
         arcade = new Arcade(protocol);
         token = new Token();
         rewardPolicy = address(new MulRewardPolicy());
+        giveawayPolicy = address(new GiveawayPolicy());
         (creator, creatorPrivateKey) = makeAddrAndKey("creator");
 
         _deposit(address(token), creator, 100_000_000 ether);
@@ -244,6 +247,53 @@ contract ArcadeTest is Test {
         vm.warp(puzzle.deadline + 1);
         vm.expectRevert("Arcade: Puzzle deadline exceeded");
         arcade.coin(puzzle, signature, 0.1 ether);
+    }
+
+    function testGiveaway() public {
+        string memory problemText = string(abi.encodePacked("Giveaway?"));
+        bytes32 problem = keccak256(bytes(problemText));
+        bytes32 solution = keccak256(abi.encodePacked("Yes!"));
+        bytes32 answer = keccak256(abi.encode(problem, solution));
+
+        IArcade.Puzzle memory puzzle = IArcade.Puzzle({
+            creator: creator,
+            problem: problem,
+            answer: answer,
+            timeLimit: 3600,
+            currency: address(token),
+            deadline: uint96(block.timestamp + 3600),
+            rewardPolicy: giveawayPolicy,
+            rewardData: abi.encode(100 ether)
+        });
+
+        bytes memory signature = _signPuzzle(puzzle);
+
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
+
+        vm.startPrank(gamer1);
+        token.mint(gamer1, 0.1 ether);
+        token.approve(address(arcade), 0.1 ether);
+        vm.expectRevert("GiveawayPolicy: Toll must be zero");
+        arcade.coin(puzzle, signature, 0.1 ether);
+        arcade.coin(puzzle, signature, 0);
+        vm.stopPrank();
+
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
+        assertEq(creatorAvailable, prevCreatorAvailable - 100 ether, "Reward should be deducted from available balance");
+        assertEq(creatorLocked, prevCreatorLocked + 100 ether, "Reward should be added to locked balance");
+
+        (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
+        (uint256 prevGamerAvailable, uint256 prevGamerLocked) = arcade.balance(address(token), gamer1);
+
+        vm.prank(gamer1);
+        arcade.solve(puzzle, solution);
+
+        (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
+        assertEq(creatorAvailable, prevCreatorAvailable, "Creator available balance should not change");
+        assertEq(creatorLocked, prevCreatorLocked - 100 ether, "Creator locked balance should be deducted");
+        assertEq(gamerAvailable, prevGamerAvailable + 99 ether, "Reward should be added to gamer available balance");
+        assertEq(gamerLocked, prevGamerLocked, "Gamer locked balance should not change");
     }
 
     function _deposit(address currency, address gamer, uint256 amount)
