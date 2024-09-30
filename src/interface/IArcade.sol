@@ -17,6 +17,9 @@ interface IArcade {
     event Expire(bytes32 puzzleId);
     event Solve(bytes32 puzzleId, uint256 reward, uint256 protocolFee);
     event Invalidate(bytes32 puzzleId);
+    event CreatorFeeUpdated(uint256 oldFee, uint256 newFee);
+    event RewardFeeUpdated(uint256 oldFee, uint256 newFee);
+
 
     // @notice Puzzles are created via intents.
     struct Puzzle {

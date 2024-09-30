@@ -19,7 +19,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     );
     uint256 private constant INVALIDATED = type(uint256).max;
 
-    uint256 public fee = 1000; // initial fee 100 bps
+    uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
+    uint256 public rewardFee = 4000; // Initial fee 400 bps. Paid by player from the reward.
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player + expiry timestamp
@@ -89,7 +90,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             availableBalanceOf[currency][msg.sender] -= toll;
         }
 
-        uint256 protocolFee = toll * fee / FEE_PRECISION;
+        uint256 protocolFee = toll * creatorFee / FEE_PRECISION;
         availableBalanceOf[currency][owner()] += protocolFee;
         availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
 
@@ -170,7 +171,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         // Settle reward.
         uint256 reward = rewardOf[puzzleId];
-        uint256 protocolFee = reward * fee / FEE_PRECISION;
+        uint256 protocolFee = reward * rewardFee / FEE_PRECISION;
         lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
         availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
@@ -194,10 +195,21 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         emit Invalidate(puzzleId);
     }
 
-    function setFee(uint256 _fee) external onlyOwner {
-        if (_fee >= FEE_PRECISION) {
+    function setCreatorFee(uint256 _newFee) external onlyOwner {
+        if (_newFee > FEE_PRECISION) {
             revert("Arcade: Fee cannot be greater than or equal to 100%");
         }
-        fee = _fee;
+        uint256 oldFee = creatorFee;
+        creatorFee = _newFee;
+        emit CreatorFeeUpdated(oldFee, _newFee);
+    }
+
+    function setRewardFee(uint256 _newFee) external onlyOwner {
+        if (_newFee > FEE_PRECISION) {
+            revert("Arcade: Fee cannot be greater than or equal to 100%");
+        }
+        uint256 oldFee = rewardFee;
+        rewardFee = _newFee;
+        emit RewardFeeUpdated(oldFee, _newFee);
     }
 }

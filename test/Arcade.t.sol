@@ -133,6 +133,8 @@ contract ArcadeTest is Test {
             _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
+        uint256 reward = 0.3 ether;
+        uint256 protocolFee = reward * 4 / 100;
         token.mint(gamer1, toll);
         vm.startPrank(gamer1);
         token.approve(address(arcade), toll);
@@ -144,7 +146,7 @@ contract ArcadeTest is Test {
         (, uint256 creatorLocked) = arcade.balance(address(token), creator);
 
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
-        assertEq(gamerAvailable, toll * 3 - toll * 3 / 100, "Gamer should receive reward minus protocol fee");
+        assertEq(gamerAvailable, reward - protocolFee, "Gamer should receive reward minus protocol fee");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
@@ -292,7 +294,7 @@ contract ArcadeTest is Test {
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         assertEq(creatorAvailable, prevCreatorAvailable, "Creator available balance should not change");
         assertEq(creatorLocked, prevCreatorLocked - 100 ether, "Creator locked balance should be deducted");
-        assertEq(gamerAvailable, prevGamerAvailable + 99 ether, "Reward should be added to gamer available balance");
+        assertEq(gamerAvailable, prevGamerAvailable + 96 ether, "Reward should be added to gamer available balance");
         assertEq(gamerLocked, prevGamerLocked, "Gamer locked balance should not change");
     }
 
