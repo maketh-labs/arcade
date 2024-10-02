@@ -42,6 +42,7 @@ EVM, create a `.env` file with the following
 ```dotenv
 DEPLOYER_PRIVATE_KEY=<deployer_private_key>
 PROTOCOL_OWNER=<protocol_owner_public_key>
+WETH_ADDRESS=<weth_address>
 ```
 and then run
 ```shell
@@ -52,6 +53,7 @@ For zkSync, set environment variables
 ```shell
 $ npx hardhat vars set DEPLOYER_PRIVATE_KEY
 $ npx hardhat vars set PROTOCOL_OWNER
+$ npx hardhat vars set WETH_ADDRESS
 ```
 and then run
 ```shell

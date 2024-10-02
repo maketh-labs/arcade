@@ -9,10 +9,12 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IArcade} from "./interface/IArcade.sol";
 import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
+import {IWETH} from "./interface/IWETH.sol";
 
 contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     using SafeERC20 for IERC20;
 
+    address public immutable WETH;
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
@@ -53,7 +55,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         _;
     }
 
-    constructor(address _owner) Ownable(_owner) EIP712("Arcade", "1") {}
+    constructor(address _owner, address _weth) Ownable(_owner) EIP712("Arcade", "1") {
+        WETH = _weth;
+    }
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
         available = availableBalanceOf[currency][user];
@@ -66,10 +70,28 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         emit Deposit(user, currency, amount);
     }
 
+    function depositETH(address user) external payable {
+        IWETH(WETH).deposit{value: msg.value}();
+        availableBalanceOf[WETH][user] += msg.value;
+        emit Deposit(user, WETH, msg.value);
+    }
+
+    receive() external payable {
+        require(msg.sender == WETH, "Arcade: Not WETH");
+    }
+
     function withdraw(address currency, uint256 amount) external {
         availableBalanceOf[currency][msg.sender] -= amount;
         IERC20(currency).safeTransfer(msg.sender, amount);
         emit Withdraw(msg.sender, currency, amount);
+    }
+
+    function withdrawETH(uint256 amount) external {
+        availableBalanceOf[WETH][msg.sender] -= amount;
+        IWETH(WETH).withdraw(amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Arcade: ETH transfer failed");
+        emit Withdraw(msg.sender, WETH, amount);
     }
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)

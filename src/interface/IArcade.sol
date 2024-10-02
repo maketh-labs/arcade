@@ -20,7 +20,6 @@ interface IArcade {
     event CreatorFeeUpdated(uint256 oldFee, uint256 newFee);
     event RewardFeeUpdated(uint256 oldFee, uint256 newFee);
 
-
     // @notice Puzzles are created via intents.
     struct Puzzle {
         address creator;
@@ -35,7 +34,9 @@ interface IArcade {
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked);
     function deposit(address currency, address user, uint256 amount) external;
+    function depositETH(address user) external payable;
     function withdraw(address currency, uint256 amount) external;
+    function withdrawETH(uint256 amount) external;
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external;
     function expire(Puzzle calldata puzzle) external;
     function solve(Puzzle calldata puzzle, bytes32 solution) external;
