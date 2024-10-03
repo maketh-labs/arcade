@@ -11,22 +11,21 @@ interface IArcade {
         uint256 toll,
         uint256 reward,
         uint96 expiryTimestamp,
-        address currency,
-        uint256 protocolFee
+        address currency
     );
     event Expire(bytes32 puzzleId);
-    event Solve(bytes32 puzzleId, uint256 reward, uint256 protocolFee);
+    event Solve(bytes32 puzzleId, uint256 reward);
     event Invalidate(bytes32 puzzleId);
     event CreatorFeeUpdated(uint256 oldFee, uint256 newFee);
     event RewardFeeUpdated(uint256 oldFee, uint256 newFee);
-
 
     // @notice Puzzles are created via intents.
     struct Puzzle {
         address creator;
         bytes32 problem;
         bytes32 answer;
-        uint96 timeLimit;
+        uint32 lives;
+        uint64 timeLimit;
         address currency;
         uint96 deadline;
         address rewardPolicy;

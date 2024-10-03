@@ -150,6 +150,21 @@ contract ArcadeTest is Test {
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
+    function testExpireOutOfLives() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll * 2);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll * 2);
+        arcade.coin(puzzle, signature, toll);
+        arcade.expire(puzzle);
+        vm.expectRevert("Arcade: Puzzle out of lives");
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+    }
+
     function testSolveIncorrect() public {
         (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
             _createPuzzle(300_000, 0.1 ether, 0.2 ether);
@@ -261,6 +276,7 @@ contract ArcadeTest is Test {
             creator: creator,
             problem: problem,
             answer: answer,
+            lives: 1,
             timeLimit: 3600,
             currency: address(token),
             deadline: uint96(block.timestamp + 3600),
@@ -342,6 +358,7 @@ contract ArcadeTest is Test {
             creator: creator,
             problem: problem,
             answer: answer,
+            lives: 1,
             timeLimit: 3600,
             currency: address(token),
             deadline: uint96(block.timestamp + 3600),
@@ -372,6 +389,7 @@ contract ArcadeTest is Test {
                 puzzle.creator,
                 puzzle.problem,
                 puzzle.answer,
+                puzzle.lives,
                 puzzle.timeLimit,
                 puzzle.currency,
                 puzzle.deadline,

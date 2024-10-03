@@ -15,7 +15,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
-        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint96 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
+        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
     );
     uint256 private constant INVALIDATED = type(uint256).max;
 
@@ -23,7 +23,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     uint256 public rewardFee = 4000; // Initial fee 400 bps. Paid by player from the reward.
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
-    mapping(bytes32 puzzleId => uint256) public statusOf; // player + expiry timestamp
+    mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
     mapping(bytes32 puzzleId => uint256) public rewardOf;
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
@@ -37,6 +37,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
                             puzzle.creator,
                             puzzle.problem,
                             puzzle.answer,
+                            puzzle.lives,
                             puzzle.timeLimit,
                             puzzle.currency,
                             puzzle.deadline,
@@ -82,27 +83,40 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
 
         address currency = puzzle.currency;
         // Collect toll from player.
-        uint256 available = availableBalanceOf[currency][msg.sender];
-        if (toll > available) {
-            IERC20(currency).transferFrom(msg.sender, address(this), toll - available);
-            availableBalanceOf[currency][msg.sender] = 0;
-        } else {
-            availableBalanceOf[currency][msg.sender] -= toll;
+        {
+            uint256 available = availableBalanceOf[currency][msg.sender];
+            if (toll > available) {
+                IERC20(currency).transferFrom(msg.sender, address(this), toll - available);
+                availableBalanceOf[currency][msg.sender] = 0;
+            } else {
+                availableBalanceOf[currency][msg.sender] -= toll;
+            }
         }
 
-        uint256 protocolFee = toll * creatorFee / FEE_PRECISION;
-        availableBalanceOf[currency][owner()] += protocolFee;
-        availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
+        {
+            uint256 protocolFee = toll * creatorFee / FEE_PRECISION;
+            availableBalanceOf[currency][owner()] += protocolFee;
+            availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
+        }
 
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
-        if (statusOf[puzzleId] != 0) {
-            if (statusOf[puzzleId] == INVALIDATED) {
-                revert("Arcade: Puzzle invalidated");
-            } else {
-                revert("Arcade: Puzzle already coined");
-            }
+        uint256 status = statusOf[puzzleId];
+        address player;
+        uint32 plays;
+        assembly {
+            player := shr(96, status)
+            plays := shr(64, status)
+        }
+        if (status == INVALIDATED) {
+            revert("Arcade: Puzzle invalidated");
+        }
+        if (puzzle.lives <= plays) {
+            revert("Arcade: Puzzle out of lives");
+        }
+        if (player != address(0)) {
+            revert("Arcade: Puzzle being played");
         }
 
         // Handle reward. Lock reward amount.
@@ -111,31 +125,34 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         availableBalanceOf[currency][puzzle.creator] -= reward;
         lockedBalanceOf[currency][puzzle.creator] += reward;
 
-        // Handle status. Pack player and expiry timestamp.
-        address player = msg.sender;
-        uint96 expiryTimestamp = uint96(block.timestamp) + puzzle.timeLimit;
+        // Handle status. Pack player, plays, and expiry timestamp.
+        player = msg.sender;
+        uint64 expiryTimestamp = uint64(block.timestamp) + puzzle.timeLimit;
         {
-            uint256 status;
             assembly {
-                status := add(shl(96, player), expiryTimestamp)
+                status := add(shl(96, player), add(shl(64, plays), expiryTimestamp))
             }
             statusOf[puzzleId] = status;
         }
-        emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency, protocolFee);
+        emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency);
     }
 
     function expire(Puzzle calldata puzzle) external {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
+        uint32 plays;
         assembly {
             player := shr(96, status)
+            plays := shr(64, status)
         }
 
         // Make sure game has expired or it's being initiated by the player.
-        if (uint96(status) > uint96(block.timestamp) && msg.sender != player) {
+        if (uint64(status) > uint64(block.timestamp) && msg.sender != player) {
             revert("Arcade: Only player can expire the puzzle before expiry");
         }
+
+        statusOf[puzzleId] = (uint256(plays) + 1) << 64;
 
         // Unfreeze assets.
         uint256 reward = rewardOf[puzzleId];
@@ -150,7 +167,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         uint256 status = statusOf[puzzleId];
 
         // Make sure game hasn't expired.
-        if (uint96(block.timestamp) > uint96(status)) {
+        if (uint64(block.timestamp) > uint64(status)) {
             revert("Arcade: Puzzle has expired");
         }
 
@@ -176,7 +193,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
         availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
 
-        emit Solve(puzzleId, reward, protocolFee);
+        emit Solve(puzzleId, reward);
     }
 
     function invalidate(Puzzle calldata puzzle) external {
