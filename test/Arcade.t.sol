@@ -8,6 +8,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Arcade, IArcade} from "../src/Arcade.sol";
 import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
 import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
+import {WETH9} from "../src/WETH9.sol";
 
 contract Token is MockERC20 {
     constructor() {
@@ -26,6 +27,7 @@ contract Token is MockERC20 {
 contract ArcadeTest is Test {
     Arcade public arcade;
     Token public token;
+    address public weth;
     address public rewardPolicy;
     address public giveawayPolicy;
 
@@ -36,7 +38,8 @@ contract ArcadeTest is Test {
     address public gamer2 = makeAddr("2");
 
     function setUp() public {
-        arcade = new Arcade(protocol);
+        weth = address(new WETH9());
+        arcade = new Arcade(protocol, weth);
         token = new Token();
         rewardPolicy = address(new MulRewardPolicy());
         giveawayPolicy = address(new GiveawayPolicy());
@@ -52,6 +55,20 @@ contract ArcadeTest is Test {
         // Deposit some more
         (available, locked) = _deposit(address(token), gamer1, 0.1 ether);
         (available, locked) = _deposit(address(token), gamer1, 0.2 ether);
+    }
+
+    function testDepositWithdrawETH() public {
+        vm.deal(gamer1, 1 ether);
+        vm.prank(gamer1);
+        arcade.depositETH{value: 1 ether}(gamer1);
+        (uint256 available, uint256 locked) = arcade.balance(weth, gamer1);
+        assertEq(available, 1 ether);
+        assertEq(locked, 0);
+
+        assertEq(gamer1.balance, 0);
+        vm.prank(gamer1);
+        arcade.withdrawETH(1 ether);
+        assertEq(gamer1.balance, 1 ether);
     }
 
     function testWithdraw() public {

@@ -15,7 +15,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   const arcadeArtifact = await deployer.loadArtifact("Arcade");
   const mulRewardPolicyArtifact = await deployer.loadArtifact("MulRewardPolicy");
   const giveawayPolicyArtifact = await deployer.loadArtifact("GiveawayPolicy");
-  const arcadeContract = await deployer.deploy(arcadeArtifact, [vars.get("PROTOCOL_OWNER")]);
+  const arcadeContract = await deployer.deploy(arcadeArtifact, [vars.get("PROTOCOL_OWNER"), vars.get("WETH_ADDRESS")]);
   const mulRewardPolicyContract = await deployer.deploy(mulRewardPolicyArtifact);
   const giveawayPolicyContract = await deployer.deploy(giveawayPolicyArtifact);
 
