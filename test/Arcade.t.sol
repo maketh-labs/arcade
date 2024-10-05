@@ -168,17 +168,119 @@ contract ArcadeTest is Test {
     }
 
     function testExpireOutOfLives() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
-            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        string memory problemText = string(abi.encodePacked("What is it"));
+        bytes32 problem = keccak256(bytes(problemText));
+        bytes32 solution = keccak256(abi.encode(123456789));
+        bytes32 answer = keccak256(abi.encode(problem, solution));
+
+        IArcade.Puzzle memory puzzle = IArcade.Puzzle({
+            creator: creator,
+            problem: problem,
+            answer: answer,
+            lives: 2,
+            timeLimit: 3600,
+            currency: address(token),
+            deadline: uint96(block.timestamp + 3600),
+            rewardPolicy: rewardPolicy,
+            rewardData: abi.encode(300_000, 0.1 ether, 0.2 ether)
+        });
+
+        bytes memory signature = _signPuzzle(puzzle);
+
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll * 3);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll * 3);
+        arcade.coin(puzzle, signature, toll);
+        arcade.expire(puzzle);
+        arcade.coin(puzzle, signature, toll);
+        arcade.expire(puzzle);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+
+        uint256 protocolFee = toll / 100;
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
+        assertEq(gamerAvailable, 0);
+        assertEq(gamerLocked, 0);
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
+        assertEq(creatorAvailable, prevCreatorAvailable + (toll - protocolFee) * 2);
+        assertEq(creatorLocked, prevCreatorLocked);
+    }
+
+    function testDuplicateCoin() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         token.mint(gamer1, toll * 2);
         vm.startPrank(gamer1);
         token.approve(address(arcade), toll * 2);
         arcade.coin(puzzle, signature, toll);
-        arcade.expire(puzzle);
-        vm.expectRevert("Arcade: Puzzle out of lives");
+        vm.expectRevert("Arcade: Puzzle being played");
         arcade.coin(puzzle, signature, toll);
+        vm.stopPrank();
+    }
+
+    function testDuplicateExpire() public {
+        (IArcade.Puzzle memory puzzle1, bytes memory signature1,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle2, bytes memory signature2,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll * 2);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll * 2);
+        arcade.coin(puzzle1, signature1, toll);
+        arcade.coin(puzzle2, signature2, toll);
+        arcade.expire(puzzle1);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.expire(puzzle1);
+        vm.stopPrank();
+    }
+
+    function testDuplicateSolve() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        arcade.solve(puzzle, solution);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.solve(puzzle, solution);
+        vm.stopPrank();
+    }
+
+    function testExpireAfterSolve() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        arcade.solve(puzzle, solution);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.expire(puzzle);
+        vm.stopPrank();
+    }
+
+    function testSolveAfterExpire() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
+            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        token.mint(gamer1, toll);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), toll);
+        arcade.coin(puzzle, signature, toll);
+        arcade.expire(puzzle);
+        vm.expectRevert("Arcade: Puzzle invalidated");
+        arcade.solve(puzzle, solution);
         vm.stopPrank();
     }
 

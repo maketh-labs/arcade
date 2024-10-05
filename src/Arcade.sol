@@ -90,7 +90,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     function withdrawETH(uint256 amount) external {
         availableBalanceOf[WETH][msg.sender] -= amount;
         IWETH(WETH).withdraw(amount);
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success, "Arcade: ETH transfer failed");
         emit Withdraw(msg.sender, WETH, amount);
     }
@@ -134,9 +134,6 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         if (status == INVALIDATED) {
             revert("Arcade: Puzzle invalidated");
         }
-        if (puzzle.lives <= plays) {
-            revert("Arcade: Puzzle out of lives");
-        }
         if (player != address(0)) {
             revert("Arcade: Puzzle being played");
         }
@@ -164,9 +161,15 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         uint256 status = statusOf[puzzleId];
         address player;
         uint32 plays;
+        if (status == INVALIDATED) {
+            revert("Arcade: Puzzle invalidated");
+        }
         assembly {
             player := shr(96, status)
-            plays := shr(64, status)
+            plays := add(shr(64, status), 1)
+        }
+        if (player == address(0)) {
+            revert("Arcade: Puzzle not being played");
         }
 
         // Make sure game has expired or it's being initiated by the player.
@@ -174,7 +177,11 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             revert("Arcade: Only player can expire the puzzle before expiry");
         }
 
-        statusOf[puzzleId] = (uint256(plays) + 1) << 64;
+        if (plays < puzzle.lives) {
+            statusOf[puzzleId] = uint256(plays) << 64;
+        } else {
+            statusOf[puzzleId] = INVALIDATED;
+        }
 
         // Unfreeze assets.
         uint256 reward = rewardOf[puzzleId];
@@ -187,6 +194,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
     function solve(Puzzle calldata puzzle, bytes32 solution) external {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
+        if (status == INVALIDATED) {
+            revert("Arcade: Puzzle invalidated");
+        }
 
         // Make sure game hasn't expired.
         if (uint64(block.timestamp) > uint64(status)) {
@@ -197,6 +207,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         assembly {
             player := shr(96, status)
         }
+
+        // Invalidate the puzzle
+        statusOf[puzzleId] = INVALIDATED;
 
         // Make sure the player is solving the puzzle.
         if (player != msg.sender) {
