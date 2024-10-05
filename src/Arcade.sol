@@ -99,6 +99,22 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         external
         validatePuzzle(puzzle, signature)
     {
+        bytes32 puzzleId = keccak256(abi.encode(puzzle));
+
+        // Make sure same game isn't created twice. Also checking if someone else is playing.
+        uint256 status = statusOf[puzzleId];
+        address player;
+        uint32 plays;
+        assembly {
+            player := shr(96, status)
+            plays := shr(64, status)
+        }
+        if (status == INVALIDATED) {
+            revert("Arcade: Puzzle invalidated");
+        }
+        if (player != address(0)) {
+            revert("Arcade: Puzzle being played");
+        }
         if (uint96(block.timestamp) > puzzle.deadline) {
             revert("Arcade: Puzzle deadline exceeded");
         }
@@ -119,23 +135,6 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
             uint256 protocolFee = toll * creatorFee / FEE_PRECISION;
             availableBalanceOf[currency][owner()] += protocolFee;
             availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
-        }
-
-        bytes32 puzzleId = keccak256(abi.encode(puzzle));
-
-        // Make sure same game isn't created twice. Also checking if someone else is playing.
-        uint256 status = statusOf[puzzleId];
-        address player;
-        uint32 plays;
-        assembly {
-            player := shr(96, status)
-            plays := shr(64, status)
-        }
-        if (status == INVALIDATED) {
-            revert("Arcade: Puzzle invalidated");
-        }
-        if (player != address(0)) {
-            revert("Arcade: Puzzle being played");
         }
 
         // Handle reward. Lock reward amount.
