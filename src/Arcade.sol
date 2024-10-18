@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IArcade} from "./interface/IArcade.sol";
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Multicall4} from "./Multicall4.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 import {IWETH} from "./interface/IWETH.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
+contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     using SafeERC20 for IERC20;
 
     address public immutable WETH;
@@ -71,10 +71,10 @@ contract Arcade is IArcade, Ownable2Step, Multicall, EIP712 {
         emit Deposit(user, currency, amount);
     }
 
-    function depositETH(address user) external payable {
-        IWETH(WETH).deposit{value: msg.value}();
-        availableBalanceOf[WETH][user] += msg.value;
-        emit Deposit(user, WETH, msg.value);
+    function depositETH(address user, uint256 amount) external payable {
+        IWETH(WETH).deposit{value: amount}();
+        availableBalanceOf[WETH][user] += amount;
+        emit Deposit(user, WETH, amount);
     }
 
     receive() external payable {

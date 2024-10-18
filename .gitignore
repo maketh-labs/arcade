@@ -6,6 +6,7 @@ artifacts-zk/
 deployments-zk/
 typechain-types/
 out/
+lib/
 
 # Ignores development broadcast logs
 broadcast/

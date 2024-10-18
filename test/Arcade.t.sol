@@ -60,7 +60,7 @@ contract ArcadeTest is Test {
     function testDepositWithdrawETH() public {
         vm.deal(gamer1, 1 ether);
         vm.prank(gamer1);
-        arcade.depositETH{value: 1 ether}(gamer1);
+        arcade.depositETH{value: 1 ether}(gamer1, 1 ether);
         (uint256 available, uint256 locked) = arcade.balance(weth, gamer1);
         assertEq(available, 1 ether);
         assertEq(locked, 0);
