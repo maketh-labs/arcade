@@ -20,8 +20,8 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   const giveawayPolicyContract = await deployer.deploy(giveawayPolicyArtifact);
 
   console.log(`${arcadeArtifact.contractName}: ${await arcadeContract.getAddress()}`);
-  console.log(`${mulRewardPolicyArtifact.contractName}: ${hre.network.name} ${await mulRewardPolicyContract.getAddress()}`);
-  console.log(`${giveawayPolicyArtifact.contractName}: ${hre.network.name} ${await giveawayPolicyContract.getAddress()}`);
+  console.log(`${mulRewardPolicyArtifact.contractName}: ${await mulRewardPolicyContract.getAddress()}`);
+  console.log(`${giveawayPolicyArtifact.contractName}: ${await giveawayPolicyContract.getAddress()}`);
 
   console.log(`npx hardhat verify --network ${hre.network.name} ${await arcadeContract.getAddress()} ${vars.get("PROTOCOL_OWNER")} ${vars.get("WETH_ADDRESS")}`);
   console.log(`npx hardhat verify --network ${hre.network.name} ${await mulRewardPolicyContract.getAddress()}`);
