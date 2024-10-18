@@ -97,6 +97,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
         external
+        payable
         validatePuzzle(puzzle, signature)
     {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
@@ -155,7 +156,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency);
     }
 
-    function expire(Puzzle calldata puzzle) external {
+    function expire(Puzzle calldata puzzle) external payable {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;

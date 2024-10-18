@@ -37,8 +37,8 @@ interface IArcade {
     function depositETH(address user, uint256 amount) external payable;
     function withdraw(address currency, uint256 amount) external;
     function withdrawETH(uint256 amount) external;
-    function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external;
-    function expire(Puzzle calldata puzzle) external;
+    function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external payable;
+    function expire(Puzzle calldata puzzle) external payable;
     function solve(Puzzle calldata puzzle, bytes32 solution) external;
     function invalidate(Puzzle calldata puzzle) external;
 }

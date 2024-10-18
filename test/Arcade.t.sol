@@ -145,6 +145,23 @@ contract ArcadeTest is Test {
         assertEq(gamerLocked, 0, "Gamer locked 3");
     }
 
+    function testCoinETH() public {
+        vm.deal(creator, 1 ether);
+        vm.prank(creator);
+        arcade.depositETH{value: 1 ether}(creator, 1 ether);
+
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
+            _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
+
+        uint256 toll = 0.1 ether;
+        vm.deal(gamer1, toll);
+        bytes[] memory data = new bytes[](2);
+        data[0] = abi.encodeWithSelector(IArcade.depositETH.selector, gamer1, toll);
+        data[1] = abi.encodeWithSelector(IArcade.coin.selector, puzzle, signature, toll);
+        vm.prank(gamer1);
+        arcade.multicall{value: 0.1 ether}(data);
+    }
+
     function testSolve() public {
         (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution) =
             _createPuzzle(300_000, 0.1 ether, 0.2 ether);
@@ -480,6 +497,32 @@ contract ArcadeTest is Test {
             lives: 1,
             timeLimit: 3600,
             currency: address(token),
+            deadline: uint96(block.timestamp + 3600),
+            rewardPolicy: rewardPolicy,
+            rewardData: abi.encode(multiplier, tollMinimum, tollMaximum)
+        });
+
+        signature = _signPuzzle(puzzle);
+    }
+
+    function _createPuzzleETH(uint256 multiplier, uint256 tollMinimum, uint256 tollMaximum)
+        internal
+        returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 solution)
+    {
+        string memory problemText = string(abi.encodePacked("What is 2+", Strings.toString(_puzzle_nonce), "?"));
+        bytes32 problem = keccak256(bytes(problemText));
+        solution = keccak256(abi.encode(2 + _puzzle_nonce));
+        bytes32 answer = keccak256(abi.encode(problem, solution));
+
+        _puzzle_nonce++;
+
+        puzzle = IArcade.Puzzle({
+            creator: creator,
+            problem: problem,
+            answer: answer,
+            lives: 1,
+            timeLimit: 3600,
+            currency: weth,
             deadline: uint96(block.timestamp + 3600),
             rewardPolicy: rewardPolicy,
             rewardData: abi.encode(multiplier, tollMinimum, tollMaximum)
