@@ -156,25 +156,25 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency);
     }
 
-    function expire(Puzzle calldata puzzle) external payable {
+    function expire(Puzzle calldata puzzle) external payable returns (bool success) {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
         uint32 plays;
         if (status == INVALIDATED) {
-            revert("Arcade: Puzzle invalidated");
+            return false;
         }
         assembly {
             player := shr(96, status)
             plays := add(shr(64, status), 1)
         }
         if (player == address(0)) {
-            revert("Arcade: Puzzle not being played");
+            return false;
         }
 
         // Make sure game has expired or it's being initiated by the player.
         if (uint64(status) > uint64(block.timestamp) && msg.sender != player) {
-            revert("Arcade: Only player can expire the puzzle before expiry");
+            return false;
         }
 
         if (plays < puzzle.lives) {
@@ -189,6 +189,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         availableBalanceOf[puzzle.currency][puzzle.creator] += reward;
 
         emit Expire(puzzleId);
+        return true;
     }
 
     function solve(Puzzle calldata puzzle, bytes32 solution) external {

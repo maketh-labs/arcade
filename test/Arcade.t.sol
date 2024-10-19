@@ -250,9 +250,8 @@ contract ArcadeTest is Test {
         token.approve(address(arcade), toll * 2);
         arcade.coin(puzzle1, signature1, toll);
         arcade.coin(puzzle2, signature2, toll);
-        arcade.expire(puzzle1);
-        vm.expectRevert("Arcade: Puzzle invalidated");
-        arcade.expire(puzzle1);
+        assert(arcade.expire(puzzle1));
+        assert(!arcade.expire(puzzle1));
         vm.stopPrank();
     }
 
@@ -281,8 +280,7 @@ contract ArcadeTest is Test {
         token.approve(address(arcade), toll);
         arcade.coin(puzzle, signature, toll);
         arcade.solve(puzzle, solution);
-        vm.expectRevert("Arcade: Puzzle invalidated");
-        arcade.expire(puzzle);
+        assert(!arcade.expire(puzzle));
         vm.stopPrank();
     }
 
