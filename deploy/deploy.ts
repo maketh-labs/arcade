@@ -15,7 +15,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   const arcadeArtifact = await deployer.loadArtifact("Arcade");
   const mulRewardPolicyArtifact = await deployer.loadArtifact("MulRewardPolicy");
   const giveawayPolicyArtifact = await deployer.loadArtifact("GiveawayPolicy");
-  const arcadeContract = await deployer.deploy(arcadeArtifact, [vars.get("PROTOCOL_OWNER"), vars.get("WETH_ADDRESS")]);
+  const arcadeContract = await deployer.deploy(arcadeArtifact, [vars.get("PROTOCOL_OWNER"), vars.get("WETH_ADDRESS"), vars.get("VERIFY_SIG")]);
   const mulRewardPolicyContract = await deployer.deploy(mulRewardPolicyArtifact);
   const giveawayPolicyContract = await deployer.deploy(giveawayPolicyArtifact);
 
@@ -23,7 +23,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   console.log(`${mulRewardPolicyArtifact.contractName}: ${await mulRewardPolicyContract.getAddress()}`);
   console.log(`${giveawayPolicyArtifact.contractName}: ${await giveawayPolicyContract.getAddress()}`);
 
-  console.log(`npx hardhat verify --network ${hre.network.name} ${await arcadeContract.getAddress()} ${vars.get("PROTOCOL_OWNER")} ${vars.get("WETH_ADDRESS")}`);
+  console.log(`npx hardhat verify --network ${hre.network.name} ${await arcadeContract.getAddress()} ${vars.get("PROTOCOL_OWNER")} ${vars.get("WETH_ADDRESS")} ${vars.get("VERIFY_SIG")}`);
   console.log(`npx hardhat verify --network ${hre.network.name} ${await mulRewardPolicyContract.getAddress()}`);
   console.log(`npx hardhat verify --network ${hre.network.name} ${await giveawayPolicyContract.getAddress()}`);
 }
