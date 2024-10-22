@@ -5,10 +5,7 @@ pragma solidity ^0.8.17;
 // https://github.com/AmbireTech/signature-validator
 
 interface IERC1271Wallet {
-    function isValidSignature(
-        bytes32 hash,
-        bytes calldata signature
-    ) external view returns (bytes4 magicValue);
+    function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4 magicValue);
 }
 
 contract VerifySig {
@@ -20,11 +17,7 @@ contract VerifySig {
     /**
      * @notice Verifies that the signature is valid for that signer and hash
      */
-    function isValidSig(
-        address _signer,
-        bytes32 _hash,
-        bytes memory _signature
-    ) public returns (bool) {
+    function isValidSig(address _signer, bytes32 _hash, bytes memory _signature) public returns (bool) {
         // The order here is strictly defined in https://eips.ethereum.org/EIPS/eip-6492
         // - ERC-6492 suffix check and verification first, while being permissive in case the contract is already deployed so as to not invalidate old sigs
         // - ERC-1271 verification if there's contract code
@@ -33,33 +26,23 @@ contract VerifySig {
             address create2Factory;
             bytes memory factoryCalldata;
             bytes memory originalSig;
-            (create2Factory, factoryCalldata, originalSig) = abi.decode(
-                _signature,
-                (address, bytes, bytes)
-            );
+            (create2Factory, factoryCalldata, originalSig) = abi.decode(_signature, (address, bytes, bytes));
 
-            (bool success, ) = create2Factory.call(factoryCalldata);
+            (bool success,) = create2Factory.call(factoryCalldata);
 
             if (_signer.code.length == 0) {
                 require(success, "SignatureValidator: deployment");
             }
 
-            return
-                IERC1271Wallet(_signer).isValidSignature(_hash, originalSig) ==
-                ERC1271_SUCCESS;
+            return IERC1271Wallet(_signer).isValidSignature(_hash, originalSig) == ERC1271_SUCCESS;
         }
 
         if (_signer.code.length > 0) {
-            return
-                IERC1271Wallet(_signer).isValidSignature(_hash, _signature) ==
-                ERC1271_SUCCESS;
+            return IERC1271Wallet(_signer).isValidSignature(_hash, _signature) == ERC1271_SUCCESS;
         }
 
         // ecrecover verification
-        require(
-            _signature.length == 65,
-            "SignatureValidator#recoverSigner: invalid signature length"
-        );
+        require(_signature.length == 65, "SignatureValidator#recoverSigner: invalid signature length");
         bytes32[3] memory _sig;
         assembly {
             _sig := _signature
@@ -68,16 +51,12 @@ contract VerifySig {
         bytes32 s = _sig[2];
         uint8 v = uint8(_signature[64]);
         if (v != 27 && v != 28) {
-            revert(
-                "SignatureValidator#recoverSigner: invalid signature v value"
-            );
+            revert("SignatureValidator#recoverSigner: invalid signature v value");
         }
         return ecrecover(_hash, v, r, s) == _signer;
     }
 
-    function trailingBytes32(
-        bytes memory data
-    ) internal pure returns (bytes32 ret) {
+    function trailingBytes32(bytes memory data) internal pure returns (bytes32 ret) {
         require(data.length >= 32);
         assembly {
             ret := mload(add(data, mload(data)))

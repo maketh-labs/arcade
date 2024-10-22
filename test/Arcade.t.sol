@@ -153,8 +153,7 @@ contract ArcadeTest is Test {
         vm.prank(creator);
         arcade.depositETH{value: 1 ether}(creator, 1 ether);
 
-        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
-            _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) = _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         vm.deal(gamer1, toll);
