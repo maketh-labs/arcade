@@ -9,21 +9,20 @@ interface IArcade {
         address creator,
         address player,
         uint256 toll,
-        uint256 reward,
+        uint256 escrow,
         uint96 expiryTimestamp,
         address currency
     );
     event Expire(bytes32 puzzleId);
-    event Solve(bytes32 puzzleId, uint256 reward);
+    event Solve(bytes32 puzzleId, uint256 payout);
     event Invalidate(bytes32 puzzleId);
     event CreatorFeeUpdated(uint256 oldFee, uint256 newFee);
-    event RewardFeeUpdated(uint256 oldFee, uint256 newFee);
+    event PayoutFeeUpdated(uint256 oldFee, uint256 newFee);
 
     // @notice Puzzles are created via intents.
     struct Puzzle {
         address creator;
-        bytes32 problem;
-        bytes32 answer;
+        address answer;
         uint32 lives;
         uint64 timeLimit;
         address currency;
@@ -39,6 +38,6 @@ interface IArcade {
     function withdrawETH(uint256 amount) external;
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external payable;
     function expire(Puzzle calldata puzzle) external payable returns (bool success);
-    function solve(Puzzle calldata puzzle, bytes32 solution) external;
+    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external;
     function invalidate(Puzzle calldata puzzle) external;
 }

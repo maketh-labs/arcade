@@ -13,17 +13,17 @@ contract MulRewardPolicyTest is Test {
 
     function testReward() public {
         bytes memory data = abi.encode(2 * policy.PRECISION(), 0.1 ether, 1 ether);
-        uint256 amount = policy.reward(0.1 ether, data);
+        uint256 amount = policy.escrow(0.1 ether, data);
         assertEq(amount, 0.2 ether);
 
         vm.expectRevert("MulRewardPolicy: toll is out of range");
-        policy.reward(0.09 ether, data);
+        policy.escrow(0.09 ether, data);
 
         vm.expectRevert("MulRewardPolicy: toll is out of range");
-        policy.reward(1.01 ether, data);
+        policy.escrow(1.01 ether, data);
 
         bytes memory invalidData = abi.encode(1 * policy.PRECISION(), 0.1 ether, 1 ether);
         vm.expectRevert("MulRewardPolicy: multiple must be greater than 1");
-        policy.reward(0.1 ether, invalidData);
+        policy.escrow(0.1 ether, invalidData);
     }
 }

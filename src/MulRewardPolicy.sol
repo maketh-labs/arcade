@@ -6,7 +6,7 @@ import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 contract MulRewardPolicy is IRewardPolicy {
     uint256 public constant PRECISION = 100_000;
 
-    function reward(uint256 toll, bytes calldata data) external pure returns (uint256 amount) {
+    function escrow(uint256 toll, bytes calldata data) external pure returns (uint256 amount) {
         (uint256 multiple, uint256 tollMinimum, uint256 tollMaximum) = abi.decode(data, (uint256, uint256, uint256));
         if (multiple <= PRECISION) {
             revert("MulRewardPolicy: multiple must be greater than 1");
@@ -15,5 +15,9 @@ contract MulRewardPolicy is IRewardPolicy {
             revert("MulRewardPolicy: toll is out of range");
         }
         amount = toll * multiple / PRECISION;
+    }
+
+    function payout(uint256 max, bytes32 payoutData) external pure returns (uint256) {
+        return max * uint256(payoutData) / PRECISION;
     }
 }
