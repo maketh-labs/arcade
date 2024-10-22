@@ -8,13 +8,14 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
 import {IWETH} from "./interface/IWETH.sol";
+import {IVerifySig} from "./interface/IVerifySig.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     using SafeERC20 for IERC20;
 
     address public immutable WETH;
+    address public immutable VERIFY_SIG;
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,bytes32 problem,bytes32 answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
@@ -30,7 +31,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
-            !SignatureChecker.isValidSignatureNow(
+            !IVerifySig(VERIFY_SIG).isValidSig(
                 puzzle.creator,
                 _hashTypedDataV4(
                     keccak256(
@@ -56,8 +57,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         _;
     }
 
-    constructor(address _owner, address _weth) Ownable(_owner) EIP712("Arcade", "1") {
+    constructor(address _owner, address _weth, address _verifySig) Ownable(_owner) EIP712("Arcade", "1") {
         WETH = _weth;
+        VERIFY_SIG = _verifySig;
     }
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {

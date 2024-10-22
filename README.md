@@ -43,6 +43,7 @@ EVM, create a `.env` file with the following
 DEPLOYER_PRIVATE_KEY=<deployer_private_key>
 PROTOCOL_OWNER=<protocol_owner_public_key>
 WETH_ADDRESS=<weth_address>
+VERIFY_SIG=<verify_sig_address>
 ```
 and then run
 ```shell
@@ -54,6 +55,7 @@ For zkSync, set environment variables
 $ npx hardhat vars set DEPLOYER_PRIVATE_KEY
 $ npx hardhat vars set PROTOCOL_OWNER
 $ npx hardhat vars set WETH_ADDRESS
+$ npx hardhat vars set VERIFY_SIG
 ```
 and then run
 ```shell

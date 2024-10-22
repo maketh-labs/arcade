@@ -8,7 +8,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Arcade, IArcade} from "../src/Arcade.sol";
 import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
 import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
-import {WETH9} from "../src/WETH9.sol";
+import {WETH9} from "../src/external/WETH9.sol";
+import {VerifySig} from "../src/external/UniversalSigValidator.sol";
 
 contract Token is MockERC20 {
     constructor() {
@@ -28,6 +29,7 @@ contract ArcadeTest is Test {
     Arcade public arcade;
     Token public token;
     address public weth;
+    address public verifySig;
     address public rewardPolicy;
     address public giveawayPolicy;
 
@@ -39,7 +41,8 @@ contract ArcadeTest is Test {
 
     function setUp() public {
         weth = address(new WETH9());
-        arcade = new Arcade(protocol, weth);
+        verifySig = address(new VerifySig());
+        arcade = new Arcade(protocol, weth, verifySig);
         token = new Token();
         rewardPolicy = address(new MulRewardPolicy());
         giveawayPolicy = address(new GiveawayPolicy());
@@ -150,8 +153,7 @@ contract ArcadeTest is Test {
         vm.prank(creator);
         arcade.depositETH{value: 1 ether}(creator, 1 ether);
 
-        (IArcade.Puzzle memory puzzle, bytes memory signature,) =
-            _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,) = _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         vm.deal(gamer1, toll);
