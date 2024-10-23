@@ -226,6 +226,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         // Settle reward.
         uint256 escrow = escrowOf[puzzleId];
         uint256 payout = IRewardPolicy(puzzle.rewardPolicy).payout(escrow, payoutData);
+        if (escrow < payout) {
+            revert("Arcade: Payout is greater than escrow");
+        }
         uint256 protocolFee = payout * payoutFee / FEE_PRECISION;
         lockedBalanceOf[puzzle.currency][puzzle.creator] -= escrow;
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
