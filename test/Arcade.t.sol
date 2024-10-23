@@ -150,8 +150,7 @@ contract ArcadeTest is Test {
         vm.prank(creator);
         arcade.depositETH{value: 1 ether}(creator, 1 ether);
 
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _createPuzzleETH(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         vm.deal(gamer1, toll);
@@ -184,9 +183,56 @@ contract ArcadeTest is Test {
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
+    function testSolvePartialPayout() public {
+        string memory problemText = string(abi.encodePacked("Partial payout"));
+        (address answer, uint256 answerPrivateKey) = makeAddrAndKey(problemText);
+
+        IArcade.Puzzle memory puzzle = IArcade.Puzzle({
+            creator: creator,
+            answer: answer,
+            lives: 1,
+            timeLimit: 3600,
+            currency: address(token),
+            deadline: uint96(block.timestamp + 3600),
+            rewardPolicy: rewardPolicy,
+            rewardData: abi.encode(300_000, 0.1 ether, 0.2 ether)
+        });
+
+        bytes memory signature = _signPuzzle(puzzle);
+        bytes memory payoutSignature = _signPayout(bytes32(uint256(30_000)), answerPrivateKey);
+
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
+
+        token.mint(gamer1, 0.1 ether);
+        vm.startPrank(gamer1);
+        token.approve(address(arcade), 0.1 ether);
+        arcade.coin(puzzle, signature, 0.1 ether);
+        vm.stopPrank();
+
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
+
+        assertEq(prevCreatorAvailable + 0.1 ether - 0.001 ether - 0.3 ether, creatorAvailable);
+        assertEq(creatorLocked, 0.3 ether);
+        assertEq(gamerAvailable, 0, "Gamer should receive 30% of the reward minus protocol fee");
+        assertEq(gamerLocked, 0, "Gamer should have no locked balance");
+
+        (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
+
+        vm.prank(gamer1);
+        arcade.solve(puzzle, bytes32(uint256(30_000)), payoutSignature);
+
+        uint256 payout = 0.3 ether * 30_000 / 100_000;
+        (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
+        (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
+
+        assertEq(creatorAvailable, prevCreatorAvailable + 0.3 ether - payout);
+        assertEq(creatorLocked, 0, "Creator should have no locked balance");
+        assertEq(gamerAvailable, payout - payout * 4 / 100);
+        assertEq(gamerLocked, 0, "Gamer should have no locked balance");
+    }
+
     function testExpireOutOfLives() public {
-        string memory problemText = string(abi.encodePacked("What is it"));
-        bytes32 problem = keccak256(bytes(problemText));
         address answer = makeAddr("answer");
 
         IArcade.Puzzle memory puzzle = IArcade.Puzzle({
@@ -226,8 +272,7 @@ contract ArcadeTest is Test {
     }
 
     function testDuplicateCoin() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         token.mint(gamer1, toll * 2);
@@ -240,10 +285,8 @@ contract ArcadeTest is Test {
     }
 
     function testDuplicateExpire() public {
-        (IArcade.Puzzle memory puzzle1, bytes memory signature1, bytes32 payoutData1, bytes memory payoutSignature1) =
-            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
-        (IArcade.Puzzle memory puzzle2, bytes memory signature2, bytes32 payoutData2, bytes memory payoutSignature2) =
-            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle1, bytes memory signature1,,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle2, bytes memory signature2,,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         uint256 toll = 0.1 ether;
         token.mint(gamer1, toll * 2);
@@ -310,7 +353,7 @@ contract ArcadeTest is Test {
         token.approve(address(arcade), toll);
         arcade.coin(puzzle, signature, toll);
         // Solve with incorrect solution.
-        (address wrong, uint256 wrongPrivateKey) = makeAddrAndKey("WRONG");
+        (, uint256 wrongPrivateKey) = makeAddrAndKey("WRONG");
         bytes memory wrongPayoutSignature = _signPayout(payoutData, wrongPrivateKey);
         vm.expectRevert("Arcade: Incorrect solution");
         arcade.solve(puzzle, payoutData, wrongPayoutSignature);
@@ -395,8 +438,7 @@ contract ArcadeTest is Test {
     }
 
     function testDeadline() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _createPuzzle(300_000, 0.1 ether, 0.2 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _createPuzzle(300_000, 0.1 ether, 0.2 ether);
 
         vm.warp(puzzle.deadline + 1);
         vm.expectRevert("Arcade: Puzzle deadline exceeded");
@@ -405,7 +447,6 @@ contract ArcadeTest is Test {
 
     function testGiveaway() public {
         string memory problemText = string(abi.encodePacked("Giveaway?"));
-        bytes32 problem = keccak256(bytes(problemText));
         (address answer, uint256 answerPrivateKey) = makeAddrAndKey(problemText);
 
         IArcade.Puzzle memory puzzle = IArcade.Puzzle({
@@ -486,7 +527,6 @@ contract ArcadeTest is Test {
     {
         string memory problemText = string(abi.encodePacked("What is 2+", Strings.toString(_puzzle_nonce), "?"));
         (address answer, uint256 answerPrivateKey) = makeAddrAndKey(problemText);
-        bytes32 problem = keccak256(bytes(problemText));
 
         _puzzle_nonce++;
 
@@ -512,7 +552,6 @@ contract ArcadeTest is Test {
     {
         string memory problemText = string(abi.encodePacked("What is 2+", Strings.toString(_puzzle_nonce), "?"));
         (address answer, uint256 answerPrivateKey) = makeAddrAndKey(problemText);
-        bytes32 problem = keccak256(bytes(problemText));
 
         _puzzle_nonce++;
 
@@ -564,8 +603,7 @@ contract ArcadeTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _signPayout(bytes32 payoutData, uint256 privateKey) internal view returns (bytes memory) {
-        bytes32 domainSeparator = _getDomainSeparator();
+    function _signPayout(bytes32 payoutData, uint256 privateKey) internal pure returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, payoutData);
         return abi.encodePacked(r, s, v);
     }

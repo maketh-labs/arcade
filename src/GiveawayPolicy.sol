@@ -11,7 +11,7 @@ contract GiveawayPolicy is IRewardPolicy {
         return abi.decode(rewardData, (uint256));
     }
 
-    function payout(uint256 max, bytes32 payoutData) external pure returns (uint256) {
+    function payout(uint256 max, bytes32) external pure returns (uint256) {
         return max;
     }
 }
