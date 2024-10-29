@@ -23,11 +23,11 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     uint256 private constant INVALIDATED = type(uint256).max;
 
     uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
-    uint256 public rewardFee = 4000; // Initial fee 400 bps. Paid by player from the reward.
+    uint256 public payoutFee = 4000; // Initial fee 400 bps. Paid by player from the payout.
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
-    mapping(bytes32 puzzleId => uint256) public rewardOf;
+    mapping(bytes32 puzzleId => uint256) public escrowOf;
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
@@ -38,7 +38,6 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
                         abi.encode(
                             PUZZLE_TYPEHASH,
                             puzzle.creator,
-                            puzzle.problem,
                             puzzle.answer,
                             puzzle.lives,
                             puzzle.timeLimit,
@@ -141,10 +140,10 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         }
 
         // Handle reward. Lock reward amount.
-        uint256 reward = IRewardPolicy(puzzle.rewardPolicy).reward(toll, puzzle.rewardData);
-        rewardOf[puzzleId] = reward;
-        availableBalanceOf[currency][puzzle.creator] -= reward;
-        lockedBalanceOf[currency][puzzle.creator] += reward;
+        uint256 escrow = IRewardPolicy(puzzle.rewardPolicy).escrow(toll, puzzle.rewardData);
+        escrowOf[puzzleId] = escrow;
+        availableBalanceOf[currency][puzzle.creator] -= escrow;
+        lockedBalanceOf[currency][puzzle.creator] += escrow;
 
         // Handle status. Pack player, plays, and expiry timestamp.
         player = msg.sender;
@@ -155,7 +154,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
             }
             statusOf[puzzleId] = status;
         }
-        emit Coin(puzzleId, puzzle.creator, player, toll, reward, expiryTimestamp, currency);
+        emit Coin(puzzleId, puzzle.creator, player, toll, escrow, expiryTimestamp, currency);
     }
 
     function expire(Puzzle calldata puzzle) external payable returns (bool success) {
@@ -186,15 +185,15 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         }
 
         // Unfreeze assets.
-        uint256 reward = rewardOf[puzzleId];
-        lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
-        availableBalanceOf[puzzle.currency][puzzle.creator] += reward;
+        uint256 escrow = escrowOf[puzzleId];
+        lockedBalanceOf[puzzle.currency][puzzle.creator] -= escrow;
+        availableBalanceOf[puzzle.currency][puzzle.creator] += escrow;
 
         emit Expire(puzzleId);
         return true;
     }
 
-    function solve(Puzzle calldata puzzle, bytes32 solution) external {
+    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         if (status == INVALIDATED) {
@@ -220,18 +219,23 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         }
 
         // Make sure the solution is correct.
-        if (puzzle.answer != keccak256(abi.encode(puzzle.problem, solution))) {
+        if (!IVerifySig(VERIFY_SIG).isValidSig(puzzle.answer, payoutData, payoutSignature)) {
             revert("Arcade: Incorrect solution");
         }
 
         // Settle reward.
-        uint256 reward = rewardOf[puzzleId];
-        uint256 protocolFee = reward * rewardFee / FEE_PRECISION;
-        lockedBalanceOf[puzzle.currency][puzzle.creator] -= reward;
+        uint256 escrow = escrowOf[puzzleId];
+        uint256 payout = IRewardPolicy(puzzle.rewardPolicy).payout(escrow, payoutData);
+        if (escrow < payout) {
+            revert("Arcade: Payout is greater than escrow");
+        }
+        uint256 protocolFee = payout * payoutFee / FEE_PRECISION;
+        lockedBalanceOf[puzzle.currency][puzzle.creator] -= escrow;
         availableBalanceOf[puzzle.currency][owner()] += protocolFee;
-        availableBalanceOf[puzzle.currency][player] += reward - protocolFee;
+        availableBalanceOf[puzzle.currency][puzzle.creator] += escrow - payout;
+        availableBalanceOf[puzzle.currency][player] += payout - protocolFee;
 
-        emit Solve(puzzleId, reward);
+        emit Solve(puzzleId, payout);
     }
 
     function invalidate(Puzzle calldata puzzle) external {
@@ -259,12 +263,12 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         emit CreatorFeeUpdated(oldFee, _newFee);
     }
 
-    function setRewardFee(uint256 _newFee) external onlyOwner {
+    function setPayoutFee(uint256 _newFee) external onlyOwner {
         if (_newFee > FEE_PRECISION) {
             revert("Arcade: Fee cannot be greater than or equal to 100%");
         }
-        uint256 oldFee = rewardFee;
-        rewardFee = _newFee;
-        emit RewardFeeUpdated(oldFee, _newFee);
+        uint256 oldFee = payoutFee;
+        payoutFee = _newFee;
+        emit PayoutFeeUpdated(oldFee, _newFee);
     }
 }
