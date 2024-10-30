@@ -18,7 +18,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     address public immutable VERIFY_SIG;
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
-        "Puzzle(address creator,bytes32 problem,bytes32 answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
+        "Puzzle(address creator,address answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
     );
     uint256 private constant INVALIDATED = type(uint256).max;
 
