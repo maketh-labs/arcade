@@ -601,8 +601,11 @@ contract ArcadeTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _signPayout(bytes32 payoutData, uint256 privateKey) internal pure returns (bytes memory) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, payoutData);
+    function _signPayout(bytes32 payoutData, uint256 privateKey) internal view returns (bytes memory) {
+        bytes32 domainSeparator = _getDomainSeparator();
+        bytes32 structHash = keccak256(abi.encode(arcade.PAYOUT_TYPEHASH(), payoutData));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
     }
 }
