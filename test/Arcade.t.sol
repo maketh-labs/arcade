@@ -192,7 +192,7 @@ contract ArcadeTest is Test {
         (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
 
         vm.prank(gamer1);
-        arcade.solve(puzzle, bytes32(uint256(30_000)), payoutSignature);
+        arcade.solve(puzzle, payoutData, payoutSignature);
 
         uint256 payout = 0.3 ether * 30_000 / 100_000;
         (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
@@ -205,8 +205,7 @@ contract ArcadeTest is Test {
     }
 
     function testExpireOutOfLives() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _livesPuzzle(2);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _livesPuzzle(2);
 
         (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(address(token), creator);
 
@@ -601,10 +600,8 @@ contract ArcadeTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _signPayout(bytes32 payoutData, uint256 privateKey) internal view returns (bytes memory) {
-        bytes32 domainSeparator = _getDomainSeparator();
-        bytes32 structHash = keccak256(abi.encode(arcade.PAYOUT_TYPEHASH(), payoutData));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    function _signPayout(bytes32 payoutData, uint256 privateKey) internal pure returns (bytes memory) {
+        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", payoutData));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
     }
