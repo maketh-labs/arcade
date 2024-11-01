@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IArcade} from "./interface/IArcade.sol";
+import {IArcade} from "./interfaces/IArcade.sol";
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Multicall4} from "./Multicall4.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
-import {IWETH} from "./interface/IWETH.sol";
-import {IVerifySig} from "./interface/IVerifySig.sol";
+import {IRewardPolicy} from "./interfaces/IRewardPolicy.sol";
+import {IWETH} from "./interfaces/IWETH.sol";
+import {IVerifySig} from "./interfaces/IVerifySig.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {

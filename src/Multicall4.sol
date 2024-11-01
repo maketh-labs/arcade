@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.28;
 
-import {IMulticall4} from "./interface/IMulticall4.sol";
+import {IMulticall4} from "./interfaces/IMulticall4.sol";
 
 /// @title Multicall4
 /// @notice Enables calling multiple methods in a single call to the contract

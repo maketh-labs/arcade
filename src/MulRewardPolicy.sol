@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
+import {IRewardPolicy} from "./interfaces/IRewardPolicy.sol";
 
 contract MulRewardPolicy is IRewardPolicy {
     uint256 public constant PRECISION = 100_000;

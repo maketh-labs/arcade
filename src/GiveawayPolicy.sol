@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IRewardPolicy} from "./interface/IRewardPolicy.sol";
+import {IRewardPolicy} from "./interfaces/IRewardPolicy.sol";
 
 contract GiveawayPolicy is IRewardPolicy {
     function escrow(uint256 toll, bytes calldata rewardData) external pure returns (uint256) {
