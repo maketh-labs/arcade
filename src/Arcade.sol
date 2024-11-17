@@ -261,8 +261,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     }
 
     function setCreatorFee(uint256 _newFee) external onlyOwner {
-        if (_newFee > FEE_PRECISION) {
-            revert("Arcade: Fee cannot be greater than or equal to 100%");
+        if (_newFee > FEE_PRECISION / 20) {
+            revert("Arcade: Fee cannot be greater than 5%");
         }
         uint256 oldFee = creatorFee;
         creatorFee = _newFee;
@@ -270,8 +270,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     }
 
     function setPayoutFee(uint256 _newFee) external onlyOwner {
-        if (_newFee > FEE_PRECISION) {
-            revert("Arcade: Fee cannot be greater than or equal to 100%");
+        if (_newFee > FEE_PRECISION / 20) {
+            revert("Arcade: Fee cannot be greater than 5%");
         }
         uint256 oldFee = payoutFee;
         payoutFee = _newFee;
