@@ -120,6 +120,9 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         if (uint96(block.timestamp) > puzzle.deadline) {
             revert("Arcade: Puzzle deadline exceeded");
         }
+        if (puzzle.lives == 0) {
+            revert("Arcade: Puzzle lives cannot be 0");
+        }
 
         address currency = puzzle.currency;
         // Collect toll from player.
