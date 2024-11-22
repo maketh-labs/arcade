@@ -210,7 +210,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         }
 
         // Make sure game hasn't expired.
-        if (uint64(block.timestamp) > uint64(status)) {
+        if (uint64(block.timestamp) >= uint64(status)) {
             revert("Arcade: Puzzle has expired");
         }
 
