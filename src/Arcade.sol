@@ -126,6 +126,12 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         if (puzzle.lives == 0) {
             revert("Arcade: Puzzle lives cannot be 0");
         }
+        if (puzzle.creator == address(0)) {
+            revert("Arcade: Invalid creator");
+        }
+        if (puzzle.answer == address(0)) {
+            revert("Arcade: Invalid answer");
+        }
 
         address currency = puzzle.currency;
         // Collect toll from player.
