@@ -454,6 +454,16 @@ contract ArcadeTest is Test {
         assertEq(gamerLocked, prevGamerLocked, "Gamer locked balance should not change");
     }
 
+    function testGiveawayIncorrectPlayer() public {
+        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
+            _giveawayPuzzle(gamer1, 100 ether);
+
+        vm.startPrank(gamer2);
+        vm.expectRevert("GiveawayPolicy: Player must be whitelisted");
+        arcade.coin(puzzle, signature, 0);
+        vm.stopPrank();
+    }
+
     function _deposit(address currency, address gamer, uint256 amount)
         internal
         returns (uint256 available, uint256 locked)
@@ -556,8 +566,9 @@ contract ArcadeTest is Test {
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
     {
-        return
-            _puzzle(solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(reward), bytes32(uint256(100_000)));
+        return _puzzle(
+            solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(solver, reward), bytes32(uint256(100_000))
+        );
     }
 
     function _livesPuzzle(address solver, uint32 lives, uint32 winningPlay)

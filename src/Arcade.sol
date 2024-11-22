@@ -104,6 +104,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         validatePuzzle(puzzle, signature)
     {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
+        address creator = puzzle.creator;
 
         // Make sure same game isn't created twice. Also checking if someone else is playing.
         uint256 status = statusOf[puzzleId];
@@ -141,14 +142,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         {
             uint256 protocolFee = toll * creatorFee / FEE_PRECISION;
             availableBalanceOf[currency][owner()] += protocolFee;
-            availableBalanceOf[currency][puzzle.creator] += toll - protocolFee;
+            availableBalanceOf[currency][creator] += toll - protocolFee;
         }
-
-        // Handle reward. Lock reward amount.
-        uint256 escrow = IRewardPolicy(puzzle.rewardPolicy).escrow(toll, puzzle.rewardData);
-        escrowOf[puzzleId] = escrow;
-        availableBalanceOf[currency][puzzle.creator] -= escrow;
-        lockedBalanceOf[currency][puzzle.creator] += escrow;
 
         // Handle status. Pack player, plays, and expiry timestamp.
         player = msg.sender;
@@ -159,7 +154,16 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
             }
             statusOf[puzzleId] = status;
         }
-        emit Coin(puzzleId, puzzle.creator, player, toll, escrow, expiryTimestamp, currency);
+
+        // Handle reward. Lock reward amount.
+        // Repurposing `status` as `escrow`
+        bytes memory rewardData = puzzle.rewardData;
+        status = IRewardPolicy(puzzle.rewardPolicy) /* escrow */ .escrow(toll, player, rewardData);
+        escrowOf[puzzleId] = status; /* escrow */
+        availableBalanceOf[currency][creator] -= status; /* escrow */
+        lockedBalanceOf[currency][creator] += status; /* escrow */
+
+        emit Coin(puzzleId, creator, player, toll, status, /* escrow */ expiryTimestamp, currency);
     }
 
     function expire(Puzzle calldata puzzle) external payable returns (bool success) {
