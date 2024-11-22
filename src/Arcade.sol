@@ -138,7 +138,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         {
             uint256 available = availableBalanceOf[currency][msg.sender];
             if (toll > available) {
-                IERC20(currency).transferFrom(msg.sender, address(this), toll - available);
+                IERC20(currency).safeTransferFrom(msg.sender, address(this), toll - available);
                 availableBalanceOf[currency][msg.sender] = 0;
             } else {
                 availableBalanceOf[currency][msg.sender] -= toll;
