@@ -20,7 +20,8 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,address answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
     );
-    bytes32 public constant PAYOUT_TYPEHASH = keccak256("Payout(bytes32 puzzleId,address solver,bytes32 payoutData)");
+    bytes32 public constant PAYOUT_TYPEHASH =
+        keccak256("Payout(bytes32 puzzleId,address solver,uint32 plays,bytes32 payoutData)");
     uint256 private constant INVALIDATED = type(uint256).max;
 
     uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
@@ -210,8 +211,10 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         }
 
         address player;
+        uint32 plays;
         assembly {
             player := shr(96, status)
+            plays := shr(64, status)
         }
 
         // Invalidate the puzzle
@@ -226,7 +229,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
         if (
             !IVerifySig(VERIFY_SIG).isValidSig(
                 puzzle.answer,
-                _hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, puzzleId, player, payoutData))),
+                _hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, puzzleId, player, plays, payoutData))),
                 payoutSignature
             )
         ) {
