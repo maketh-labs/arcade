@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IArcade} from "./interfaces/IArcade.sol";
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Multicall4} from "./Multicall4.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,7 +12,7 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IVerifySig} from "./interfaces/IVerifySig.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
+contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
     using SafeERC20 for IERC20;
 
     address public immutable WETH;
@@ -101,6 +102,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
         external
         payable
+        nonReentrant
         validatePuzzle(puzzle, signature)
     {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
