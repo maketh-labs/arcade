@@ -20,6 +20,7 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,address answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
     );
+    bytes32 public constant PAYOUT_TYPEHASH = keccak256("Payout(bytes32 puzzleId,address solver,bytes32 payoutData)");
     uint256 private constant INVALIDATED = type(uint256).max;
 
     uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
@@ -221,11 +222,11 @@ contract Arcade is IArcade, Ownable2Step, Multicall4, EIP712 {
             revert("Arcade: Only player can solve the puzzle");
         }
 
-        // Make sure the solution is correct.
+        // Make sure the solution is correct. Use EIP-712 domain separator.
         if (
             !IVerifySig(VERIFY_SIG).isValidSig(
                 puzzle.answer,
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", payoutData)),
+                _hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, puzzleId, player, payoutData))),
                 payoutSignature
             )
         ) {
