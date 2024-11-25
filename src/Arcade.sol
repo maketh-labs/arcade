@@ -69,13 +69,13 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         locked = lockedBalanceOf[currency][user];
     }
 
-    function deposit(address currency, address user, uint256 amount) external {
+    function deposit(address currency, address user, uint256 amount) external nonReentrant {
         IERC20(currency).safeTransferFrom(msg.sender, address(this), amount);
         availableBalanceOf[currency][user] += amount;
         emit Deposit(user, currency, amount);
     }
 
-    function depositETH(address user, uint256 amount) external payable {
+    function depositETH(address user, uint256 amount) external payable nonReentrant {
         IWETH(WETH).deposit{value: amount}();
         availableBalanceOf[WETH][user] += amount;
         emit Deposit(user, WETH, amount);
@@ -85,13 +85,13 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         require(msg.sender == WETH, "Arcade: Not WETH");
     }
 
-    function withdraw(address currency, uint256 amount) external {
+    function withdraw(address currency, uint256 amount) external nonReentrant {
         availableBalanceOf[currency][msg.sender] -= amount;
         IERC20(currency).safeTransfer(msg.sender, amount);
         emit Withdraw(msg.sender, currency, amount);
     }
 
-    function withdrawETH(uint256 amount) external {
+    function withdrawETH(uint256 amount) external nonReentrant {
         availableBalanceOf[WETH][msg.sender] -= amount;
         IWETH(WETH).withdraw(amount);
         (bool success,) = msg.sender.call{value: amount}("");
@@ -174,7 +174,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Coin(puzzleId, creator, player, toll, status, /* escrow */ expiryTimestamp, currency);
     }
 
-    function expire(Puzzle calldata puzzle) external payable returns (bool success) {
+    function expire(Puzzle calldata puzzle) external payable nonReentrant returns (bool success) {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
@@ -210,7 +210,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         return true;
     }
 
-    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external {
+    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external nonReentrant {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         if (status == INVALIDATED) {
@@ -263,7 +263,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Solve(puzzleId, payout);
     }
 
-    function invalidate(Puzzle calldata puzzle) external {
+    function invalidate(Puzzle calldata puzzle) external nonReentrant {
         // Make sure the creator is invalidating the puzzle.
         if (msg.sender != puzzle.creator) {
             revert("Arcade: Only creator can invalidate the puzzle");
@@ -279,7 +279,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Invalidate(puzzleId);
     }
 
-    function setCreatorFee(uint256 _newFee) external onlyOwner {
+    function setCreatorFee(uint256 _newFee) external onlyOwner nonReentrant {
         if (_newFee > FEE_PRECISION / 20) {
             revert("Arcade: Fee cannot be greater than 5%");
         }
@@ -288,7 +288,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit CreatorFeeUpdated(oldFee, _newFee);
     }
 
-    function setPayoutFee(uint256 _newFee) external onlyOwner {
+    function setPayoutFee(uint256 _newFee) external onlyOwner nonReentrant {
         if (_newFee > FEE_PRECISION / 20) {
             revert("Arcade: Fee cannot be greater than 5%");
         }
