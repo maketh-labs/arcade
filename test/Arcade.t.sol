@@ -98,7 +98,7 @@ contract ArcadeTest is Test {
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL1 - TOLL1 / 100 - TOLL1 * 3, "Creator available 1");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL1 - TOLL1 * 3, "Creator available 1");
         assertEq(creatorLocked, prevCreatorLocked + TOLL1 * 3, "Creator locked 1");
         assertEq(gamerAvailable, 0, "Gamer available 1");
         assertEq(gamerLocked, 0, "Gamer locked 1");
@@ -117,7 +117,7 @@ contract ArcadeTest is Test {
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
         (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL3 - TOLL3 / 100 - TOLL3 * 3, "Creator available 2");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL3 - TOLL3 * 3, "Creator available 2");
         assertEq(creatorLocked, prevCreatorLocked + TOLL3 * 3, "Creator locked 2");
         assertEq(gamerAvailable, 0.1 ether, "Gamer available 2");
         assertEq(gamerLocked, 0, "Gamer locked 2");
@@ -135,7 +135,7 @@ contract ArcadeTest is Test {
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
         (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL2 - TOLL2 / 100 - TOLL2 * 3, "Creator available 3");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL2 - TOLL2 * 3, "Creator available 3");
         assertEq(creatorLocked, prevCreatorLocked + TOLL2 * 3, "Creator locked 3");
         assertEq(gamerAvailable, 0, "Gamer available 3");
         assertEq(gamerLocked, 0, "Gamer locked 3");
@@ -163,7 +163,6 @@ contract ArcadeTest is Test {
 
         uint256 toll = 0.1 ether;
         uint256 reward = 0.3 ether;
-        uint256 protocolFee = reward * 4 / 100;
         token.mint(gamer1, toll);
         vm.startPrank(gamer1);
         token.approve(address(arcade), toll);
@@ -175,7 +174,7 @@ contract ArcadeTest is Test {
         (, uint256 creatorLocked) = arcade.balance(address(token), creator);
 
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
-        assertEq(gamerAvailable, reward - protocolFee, "Gamer should receive reward minus protocol fee");
+        assertEq(gamerAvailable, reward, "Gamer should receive full reward");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
@@ -194,9 +193,9 @@ contract ArcadeTest is Test {
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
 
-        assertEq(prevCreatorAvailable + 0.1 ether - 0.001 ether - 0.3 ether, creatorAvailable);
+        assertEq(prevCreatorAvailable + 0.1 ether - 0.3 ether, creatorAvailable);
         assertEq(creatorLocked, 0.3 ether);
-        assertEq(gamerAvailable, 0, "Gamer should receive 30% of the reward minus protocol fee");
+        assertEq(gamerAvailable, 0, "Gamer should receive 30% of the reward");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
 
         (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
@@ -210,7 +209,7 @@ contract ArcadeTest is Test {
 
         assertEq(creatorAvailable, prevCreatorAvailable + 0.3 ether - payout);
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
-        assertEq(gamerAvailable, payout - payout * 4 / 100);
+        assertEq(gamerAvailable, payout);
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
@@ -231,12 +230,11 @@ contract ArcadeTest is Test {
         arcade.coin(puzzle, signature, toll);
         vm.stopPrank();
 
-        uint256 protocolFee = toll / 100;
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         assertEq(gamerAvailable, 0);
         assertEq(gamerLocked, 0);
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + (toll - protocolFee) * 2);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll * 2);
         assertEq(creatorLocked, prevCreatorLocked);
     }
 
@@ -407,7 +405,7 @@ contract ArcadeTest is Test {
         arcade.expire(puzzle);
 
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator available");
         assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
 
         // Test expire by player.
@@ -420,7 +418,7 @@ contract ArcadeTest is Test {
         arcade.expire(puzzle);
         vm.stopPrank();
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator available");
         assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
     }
 
@@ -460,7 +458,7 @@ contract ArcadeTest is Test {
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         assertEq(creatorAvailable, prevCreatorAvailable, "Creator available balance should not change");
         assertEq(creatorLocked, prevCreatorLocked - 100 ether, "Creator locked balance should be deducted");
-        assertEq(gamerAvailable, prevGamerAvailable + 96 ether, "Reward should be added to gamer available balance");
+        assertEq(gamerAvailable, prevGamerAvailable + 100 ether, "Reward should be added to gamer available balance");
         assertEq(gamerLocked, prevGamerLocked, "Gamer locked balance should not change");
     }
 

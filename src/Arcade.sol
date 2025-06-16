@@ -55,8 +55,8 @@ contract Arcade is
 
         WETH = _weth;
         VERIFY_SIG = _verifySig;
-        creatorFee = 1000; // Initial fee 100 bps
-        payoutFee = 4000; // Initial fee 400 bps
+        creatorFee = 0; // Initial fee 0 bps
+        payoutFee = 0; // Initial fee 0 bps
     }
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
