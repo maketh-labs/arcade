@@ -96,8 +96,11 @@ contract Arcade is
 
     /// @dev only for MOONSHEEP CANNON
     // solve, withdraw in one function
-    function cashOut(address user, Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external {
-        solve(puzzle, payoutData, payoutSignature);
+    function cashOut(address user, Puzzle calldata puzzle, bytes calldata signature, bytes calldata payoutSignature)
+        external
+    {
+        coin(puzzle, signature, 0);
+        solve(puzzle, bytes32(0) /* payoutData */, payoutSignature);
         withdrawETH(availableBalanceOf[WETH][user]);
     }
 
@@ -137,7 +140,7 @@ contract Arcade is
     }
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
-        public 
+        public
         payable
         nonReentrant
         validatePuzzle(puzzle, signature)
