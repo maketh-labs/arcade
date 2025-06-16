@@ -40,6 +40,9 @@ contract Arcade is
     mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
     mapping(bytes32 puzzleId => uint256) public escrowOf;
 
+    // @notice Reserved slots for upgradeability
+    uint256[50] private __gap; // 50 reserved slots
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -83,6 +86,21 @@ contract Arcade is
         _;
     }
 
+    /// @dev only for MOONSHEEP CANNON
+    // depositETH, coin, expire in one function
+    function shoot(address user, Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external payable {
+        depositETH(user, toll);
+        coin(puzzle, signature, toll);
+        expire(puzzle);
+    }
+
+    /// @dev only for MOONSHEEP CANNON
+    // solve, withdraw in one function
+    function cashOut(address user, Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external {
+        solve(puzzle, payoutData, payoutSignature);
+        withdrawETH(availableBalanceOf[WETH][user]);
+    }
+
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
         available = availableBalanceOf[currency][user];
         locked = lockedBalanceOf[currency][user];
@@ -94,7 +112,7 @@ contract Arcade is
         emit Deposit(user, currency, amount);
     }
 
-    function depositETH(address user, uint256 amount) external payable nonReentrant {
+    function depositETH(address user, uint256 amount) public payable nonReentrant {
         IWETH(WETH).deposit{value: amount}();
         availableBalanceOf[WETH][user] += amount;
         emit Deposit(user, WETH, amount);
@@ -110,7 +128,7 @@ contract Arcade is
         emit Withdraw(msg.sender, currency, amount);
     }
 
-    function withdrawETH(uint256 amount) external nonReentrant {
+    function withdrawETH(uint256 amount) public nonReentrant {
         availableBalanceOf[WETH][msg.sender] -= amount;
         IWETH(WETH).withdraw(amount);
         (bool success,) = msg.sender.call{value: amount}("");
@@ -119,7 +137,7 @@ contract Arcade is
     }
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
-        external
+        public 
         payable
         nonReentrant
         validatePuzzle(puzzle, signature)
@@ -193,7 +211,7 @@ contract Arcade is
         emit Coin(puzzleId, creator, player, toll, status, /* escrow */ expiryTimestamp, currency);
     }
 
-    function expire(Puzzle calldata puzzle) external payable nonReentrant returns (bool success) {
+    function expire(Puzzle calldata puzzle) public payable nonReentrant returns (bool success) {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
@@ -229,7 +247,7 @@ contract Arcade is
         return true;
     }
 
-    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external nonReentrant {
+    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) public nonReentrant {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         if (status == INVALIDATED) {
