@@ -11,6 +11,7 @@ import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
 import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
 import {WETH9} from "../src/external/WETH9.sol";
 import {VerifySig} from "../src/external/UniversalSigValidator.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract Token is MockERC20 {
     constructor() {
@@ -27,6 +28,7 @@ contract Token is MockERC20 {
 }
 
 contract ArcadeTest is Test {
+    Arcade public arcadeImpl;
     Arcade public arcade;
     Token public token;
     address public weth;
@@ -47,7 +49,15 @@ contract ArcadeTest is Test {
     function setUp() public {
         weth = address(new WETH9());
         verifySig = address(new VerifySig());
-        arcade = new Arcade(protocol, weth, verifySig);
+
+        // Deploy implementation
+        arcadeImpl = new Arcade();
+
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(Arcade.initialize.selector, protocol, weth, verifySig);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(arcadeImpl), initData);
+        arcade = Arcade(payable(address(proxy)));
+
         token = new Token();
         mulPolicy = address(new MulRewardPolicy());
         giveawayPolicy = address(new GiveawayPolicy());

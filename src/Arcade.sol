@@ -2,21 +2,29 @@
 pragma solidity ^0.8.28;
 
 import {IArcade} from "./interfaces/IArcade.sol";
-import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {Multicall4} from "./Multicall4.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRewardPolicy} from "./interfaces/IRewardPolicy.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IVerifySig} from "./interfaces/IVerifySig.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
+contract Arcade is
+    IArcade,
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    Multicall4,
+    EIP712Upgradeable
+{
     using SafeERC20 for IERC20;
 
-    address public immutable WETH;
-    address public immutable VERIFY_SIG;
+    address public WETH;
+    address public VERIFY_SIG;
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,address answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
@@ -25,12 +33,28 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         keccak256("Payout(bytes32 puzzleId,address solver,uint32 plays,bytes32 payoutData)");
     uint256 private constant INVALIDATED = type(uint256).max;
 
-    uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
-    uint256 public payoutFee = 4000; // Initial fee 400 bps. Paid by player from the payout.
+    uint256 public creatorFee; // Initial fee 100 bps. Paid by creator from the toll.
+    uint256 public payoutFee; // Initial fee 400 bps. Paid by player from the payout.
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
     mapping(bytes32 puzzleId => uint256) public escrowOf;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _owner, address _weth, address _verifySig) public initializer {
+        __Ownable_init(_owner);
+        __ReentrancyGuard_init();
+        __EIP712_init("Arcade", "1");
+
+        WETH = _weth;
+        VERIFY_SIG = _verifySig;
+        creatorFee = 1000; // Initial fee 100 bps
+        payoutFee = 4000; // Initial fee 400 bps
+    }
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
@@ -57,11 +81,6 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
             revert("Arcade: Invalid puzzle");
         }
         _;
-    }
-
-    constructor(address _owner, address _weth, address _verifySig) Ownable(_owner) EIP712("Arcade", "1") {
-        WETH = _weth;
-        VERIFY_SIG = _verifySig;
     }
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
