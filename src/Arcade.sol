@@ -39,13 +39,14 @@ contract Arcade is
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
     mapping(bytes32 puzzleId => uint256) public escrowOf;
+    mapping(bytes32 puzzleId => uint256) public shootOf;
 
     // @notice Reserved slots for upgradeability
     uint256[50] private __gap; // 50 reserved slots
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        _disableInitializers();
+        // _disableInitializers(); // Removed for direct deployment
     }
 
     function initialize(address _owner, address _weth, address _verifySig) public initializer {
@@ -89,9 +90,11 @@ contract Arcade is
     /// @dev only for MOONSHEEP CANNON
     // depositETH, coin, expire in one function
     function shoot(address user, Puzzle calldata shootPuzzle, bytes calldata shootSignature, uint256 toll)
-        external
+        public
         payable
     {
+        bytes32 puzzleId = keccak256(abi.encode(shootPuzzle));
+        shootOf[puzzleId] = toll;
         depositETH(user, toll);
         coin(shootPuzzle, shootSignature, toll);
     }
@@ -104,8 +107,7 @@ contract Arcade is
         uint256 toll
     ) external payable {
         expire(prevPuzzle);
-        depositETH(user, toll);
-        coin(shootPuzzle, shootSignature, toll);
+        shoot(user, shootPuzzle, shootSignature, toll);
     }
 
     /// @dev only for MOONSHEEP CANNON
