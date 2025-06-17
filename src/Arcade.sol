@@ -88,19 +88,38 @@ contract Arcade is
 
     /// @dev only for MOONSHEEP CANNON
     // depositETH, coin, expire in one function
-    function shoot(address user, Puzzle calldata puzzle, bytes calldata signature, uint256 toll) external payable {
+    function shoot(address user, Puzzle calldata shootPuzzle, bytes calldata shootSignature, uint256 toll)
+        external
+        payable
+    {
         depositETH(user, toll);
-        coin(puzzle, signature, toll);
-        expire(puzzle);
+        coin(shootPuzzle, shootSignature, toll);
+    }
+
+    function expirePrevAndShoot(
+        address user,
+        Puzzle calldata prevPuzzle,
+        Puzzle calldata shootPuzzle,
+        bytes calldata shootSignature,
+        uint256 toll
+    ) external payable {
+        expire(prevPuzzle);
+        depositETH(user, toll);
+        coin(shootPuzzle, shootSignature, toll);
     }
 
     /// @dev only for MOONSHEEP CANNON
     // solve, withdraw in one function
-    function cashOut(address user, Puzzle calldata puzzle, bytes calldata signature, bytes calldata payoutSignature)
-        external
-    {
-        coin(puzzle, signature, 0);
-        solve(puzzle, bytes32(0) /* payoutData */, payoutSignature);
+    function cashOut(
+        address user,
+        Puzzle calldata shootPuzzle,
+        Puzzle calldata giveawayPuzzle,
+        bytes calldata giveawaySignature,
+        bytes calldata payoutSignature
+    ) external {
+        expire(shootPuzzle);
+        coin(giveawayPuzzle, giveawaySignature, 0);
+        solve(giveawayPuzzle, bytes32(0), /* payoutData */ payoutSignature);
         withdrawETH(availableBalanceOf[WETH][user]);
     }
 

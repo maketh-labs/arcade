@@ -466,8 +466,7 @@ contract ArcadeTest is Test {
     }
 
     function testGiveawayIncorrectPlayer() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _giveawayPuzzle(gamer1, 100 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _giveawayPuzzle(gamer1, 100 ether);
 
         vm.startPrank(gamer2);
         vm.expectRevert("GiveawayPolicy: Player must be whitelisted");
@@ -477,7 +476,7 @@ contract ArcadeTest is Test {
 
     function testShoot() public {
         // Setup
-        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _moonSheepCannonPuzzle(gamer1);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _shootPuzzle(gamer1);
         uint256 toll = 0.1 ether;
 
         // Fund gamer with ETH
@@ -507,7 +506,9 @@ contract ArcadeTest is Test {
     function testCashOut() public {
         // Setup
         uint256 reward = 0.3 ether;
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) = _giveawayPuzzleETH(gamer1, reward);
+        (IArcade.Puzzle memory shootPuzzle, bytes memory shootSignature,,) = _shootPuzzle(gamer1);
+        (IArcade.Puzzle memory giveawayPuzzle, bytes memory giveawaySignature,, bytes memory payoutSignature) =
+            _giveawayPuzzleETH(gamer1, reward);
 
         // Fund creator with WETH
         vm.deal(creator, reward);
@@ -516,7 +517,7 @@ contract ArcadeTest is Test {
 
         // Execute cashOut
         vm.prank(gamer1);
-        arcade.cashOut(gamer1, puzzle, signature, payoutSignature);
+        arcade.cashOut(gamer1, shootPuzzle, giveawayPuzzle, giveawaySignature, payoutSignature);
 
         // Check balances after cashOut
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(weth, gamer1);
@@ -529,7 +530,7 @@ contract ArcadeTest is Test {
 
     function testShootAndCashOut() public {
         // Setup
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) = _moonSheepCannonPuzzle(gamer1);
+        (IArcade.Puzzle memory shootPuzzle, bytes memory shootSignature,,) = _shootPuzzle(gamer1);
         uint256 toll = 0.1 ether;
         uint256 reward = 0.3 ether;
 
@@ -545,18 +546,20 @@ contract ArcadeTest is Test {
 
         // Execute shoot
         vm.prank(gamer1);
-        arcade.shoot{value: toll}(gamer1, puzzle, signature, toll);
+        arcade.shoot{value: toll}(gamer1, shootPuzzle, shootSignature, toll);
 
         // Check balances after shoot
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(weth, creator);
         assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator should receive toll");
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
 
+        // Setup giveaway puzzle for cashOut
+        (IArcade.Puzzle memory giveawayPuzzle, bytes memory giveawaySignature,, bytes memory payoutSignature) =
+            _giveawayPuzzleETH(gamer1, reward);
 
-        (puzzle, signature, payoutData, payoutSignature) = _giveawayPuzzleETH(gamer1, reward);
         // Execute cashOut
         vm.prank(gamer1);
-        arcade.cashOut(gamer1, puzzle, signature, payoutSignature);
+        arcade.cashOut(gamer1, shootPuzzle, giveawayPuzzle, giveawaySignature, payoutSignature);
 
         // Check final balances
         assertEq(gamer1.balance, prevGamerETH + reward - toll, "Gamer should receive ETH reward");
@@ -622,7 +625,7 @@ contract ArcadeTest is Test {
         assertEq(IERC20(weth).balanceOf(address(arcade)), prevArcadeBalance - amount);
     }
 
-    function _moonSheepCannonPuzzle(address solver)
+    function _shootPuzzle(address solver)
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
     {
@@ -674,18 +677,14 @@ contract ArcadeTest is Test {
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
     {
-        return _puzzle(
-            solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(solver, reward), bytes32(0)
-        );
+        return _puzzle(solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(solver, reward), bytes32(0));
     }
 
     function _giveawayPuzzleETH(address solver, uint256 reward)
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
     {
-        return _puzzle(
-            solver, 0, 1, 3600, weth, giveawayPolicy, abi.encode(solver, reward), bytes32(0)
-        );
+        return _puzzle(solver, 0, 1, 3600, weth, giveawayPolicy, abi.encode(solver, reward), bytes32(0));
     }
 
     function _livesPuzzle(address solver, uint32 lives, uint32 winningPlay)
