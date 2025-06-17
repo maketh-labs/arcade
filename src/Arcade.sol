@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IArcade} from "./interfaces/IArcade.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {Multicall4} from "./Multicall4.sol";
 import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
@@ -15,7 +16,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 
 contract Arcade is
     IArcade,
-    Initializable,
+    UUPSUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     Multicall4,
@@ -44,10 +45,7 @@ contract Arcade is
     // @notice Reserved slots for upgradeability
     uint256[50] private __gap; // 50 reserved slots
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        // _disableInitializers(); // Removed for direct deployment
-    }
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function initialize(address _owner, address _weth, address _verifySig) public initializer {
         __Ownable_init(_owner);

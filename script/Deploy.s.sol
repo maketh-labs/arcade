@@ -9,14 +9,30 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {console} from "forge-std/console.sol";
 
 contract DeployScript is Script {
-    function run() public {
+    function prepare() public {
+        vm.startBroadcast(vm.envUint("DEPLOYER_PRIVATE_KEY"));
+        Arcade arcade = new Arcade();
+        vm.stopBroadcast();
+        console.log("Arcade:", address(arcade));
+    }
+
+    function run(address payable arcade) public {
         vm.startBroadcast(vm.envUint("DEPLOYER_PRIVATE_KEY"));
 
         // Deploy the Arcade contract
-        Arcade arcade = new Arcade();
-
-        // Initialize the contract directly
-        arcade.initialize(vm.envAddress("PROTOCOL_OWNER"), vm.envAddress("WETH_ADDRESS"), vm.envAddress("VERIFY_SIG"));
+        Arcade a = Arcade(
+            payable(
+                new ERC1967Proxy(
+                    arcade,
+                    abi.encodeWithSelector(
+                        Arcade.initialize.selector,
+                        vm.envAddress("PROTOCOL_OWNER"),
+                        vm.envAddress("WETH_ADDRESS"),
+                        vm.envAddress("VERIFY_SIG")
+                    )
+                )
+            )
+        );
 
         // Deploy policies
         address shootPolicy = address(new ShootPolicy());
@@ -24,7 +40,7 @@ contract DeployScript is Script {
 
         vm.stopBroadcast();
 
-        console.log("Arcade:", address(arcade));
+        console.log("Arcade:", address(a));
         console.log("ShootPolicy:", shootPolicy);
         console.log("GiveawayPolicy:", giveawayPolicy);
         console.log("Owner:", vm.envAddress("PROTOCOL_OWNER"));
