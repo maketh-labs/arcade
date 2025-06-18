@@ -2,17 +2,26 @@
 pragma solidity ^0.8.28;
 
 import {IArcade} from "./interfaces/IArcade.sol";
-import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {Multicall4} from "./Multicall4.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRewardPolicy} from "./interfaces/IRewardPolicy.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IVerifySig} from "./interfaces/IVerifySig.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
+contract Arcade is
+    IArcade,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    Multicall4,
+    EIP712Upgradeable
+{
     using SafeERC20 for IERC20;
 
     address public immutable WETH;
@@ -25,12 +34,33 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         keccak256("Payout(bytes32 puzzleId,address solver,uint32 plays,bytes32 payoutData)");
     uint256 private constant INVALIDATED = type(uint256).max;
 
-    uint256 public creatorFee = 1000; // Initial fee 100 bps. Paid by creator from the toll.
-    uint256 public payoutFee = 4000; // Initial fee 400 bps. Paid by player from the payout.
+    uint256 public creatorFee; // Initial fee 100 bps. Paid by creator from the toll.
+    uint256 public payoutFee; // Initial fee 400 bps. Paid by player from the payout.
     mapping(address currency => mapping(address user => uint256)) public availableBalanceOf;
     mapping(address currency => mapping(address user => uint256)) public lockedBalanceOf;
     mapping(bytes32 puzzleId => uint256) public statusOf; // player (160) + plays (32) + expiry timestamp (64)
     mapping(bytes32 puzzleId => uint256) public escrowOf;
+    mapping(bytes32 puzzleId => uint256) public shootOf;
+
+    // @notice Reserved slots for upgradeability
+    uint256[50] private __gap; // 50 reserved slots
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _weth, address _verifySig) {
+        WETH = _weth;
+        VERIFY_SIG = _verifySig;
+    }
+
+    function initialize(address _owner) public initializer {
+        __Ownable_init(_owner);
+        __ReentrancyGuard_init();
+        __EIP712_init("Arcade", "1");
+
+        creatorFee = 0; // Initial fee 0 bps
+        payoutFee = 0; // Initial fee 0 bps
+    }
 
     modifier validatePuzzle(Puzzle calldata puzzle, bytes calldata signature) {
         if (
@@ -59,9 +89,42 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         _;
     }
 
-    constructor(address _owner, address _weth, address _verifySig) Ownable(_owner) EIP712("Arcade", "1") {
-        WETH = _weth;
-        VERIFY_SIG = _verifySig;
+    /// @dev only for MOONSHEEP CANNON
+    // depositETH, coin, expire in one function
+    function shoot(address user, Puzzle calldata shootPuzzle, bytes calldata shootSignature, uint256 toll)
+        public
+        payable
+    {
+        bytes32 puzzleId = keccak256(abi.encode(shootPuzzle));
+        shootOf[puzzleId] = toll;
+        depositETH(user, toll);
+        coin(shootPuzzle, shootSignature, toll);
+    }
+
+    function expirePrevAndShoot(
+        address user,
+        Puzzle calldata prevPuzzle,
+        Puzzle calldata shootPuzzle,
+        bytes calldata shootSignature,
+        uint256 toll
+    ) external payable {
+        expire(prevPuzzle);
+        shoot(user, shootPuzzle, shootSignature, toll);
+    }
+
+    /// @dev only for MOONSHEEP CANNON
+    // solve, withdraw in one function
+    function cashOut(
+        address user,
+        Puzzle calldata shootPuzzle,
+        Puzzle calldata giveawayPuzzle,
+        bytes calldata giveawaySignature,
+        bytes calldata payoutSignature
+    ) external {
+        expire(shootPuzzle);
+        coin(giveawayPuzzle, giveawaySignature, 0);
+        solve(giveawayPuzzle, bytes32(0), /* payoutData */ payoutSignature);
+        withdrawETH(availableBalanceOf[WETH][user]);
     }
 
     function balance(address currency, address user) external view returns (uint256 available, uint256 locked) {
@@ -75,7 +138,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Deposit(user, currency, amount);
     }
 
-    function depositETH(address user, uint256 amount) external payable nonReentrant {
+    function depositETH(address user, uint256 amount) public payable nonReentrant {
         IWETH(WETH).deposit{value: amount}();
         availableBalanceOf[WETH][user] += amount;
         emit Deposit(user, WETH, amount);
@@ -91,7 +154,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Withdraw(msg.sender, currency, amount);
     }
 
-    function withdrawETH(uint256 amount) external nonReentrant {
+    function withdrawETH(uint256 amount) public nonReentrant {
         availableBalanceOf[WETH][msg.sender] -= amount;
         IWETH(WETH).withdraw(amount);
         (bool success,) = msg.sender.call{value: amount}("");
@@ -100,7 +163,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
     }
 
     function coin(Puzzle calldata puzzle, bytes calldata signature, uint256 toll)
-        external
+        public
         payable
         nonReentrant
         validatePuzzle(puzzle, signature)
@@ -174,7 +237,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         emit Coin(puzzleId, creator, player, toll, status, /* escrow */ expiryTimestamp, currency);
     }
 
-    function expire(Puzzle calldata puzzle) external payable nonReentrant returns (bool success) {
+    function expire(Puzzle calldata puzzle) public payable nonReentrant returns (bool success) {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         address player;
@@ -210,7 +273,7 @@ contract Arcade is IArcade, Ownable2Step, ReentrancyGuard, Multicall4, EIP712 {
         return true;
     }
 
-    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) external nonReentrant {
+    function solve(Puzzle calldata puzzle, bytes32 payoutData, bytes calldata payoutSignature) public nonReentrant {
         bytes32 puzzleId = keccak256(abi.encode(puzzle));
         uint256 status = statusOf[puzzleId];
         if (status == INVALIDATED) {

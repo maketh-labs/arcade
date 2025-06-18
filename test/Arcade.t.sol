@@ -9,8 +9,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Arcade, IArcade} from "../src/Arcade.sol";
 import {MulRewardPolicy} from "../src/MulRewardPolicy.sol";
 import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
+import {ShootPolicy} from "../src/ShootPolicy.sol";
 import {WETH9} from "../src/external/WETH9.sol";
 import {VerifySig} from "../src/external/UniversalSigValidator.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract Token is MockERC20 {
     constructor() {
@@ -27,12 +29,14 @@ contract Token is MockERC20 {
 }
 
 contract ArcadeTest is Test {
+    Arcade public arcadeImpl;
     Arcade public arcade;
     Token public token;
     address public weth;
     address public verifySig;
     address public mulPolicy;
     address public giveawayPolicy;
+    address public shootPolicy;
 
     address public protocol = makeAddr("protocol");
     address public creator;
@@ -47,10 +51,19 @@ contract ArcadeTest is Test {
     function setUp() public {
         weth = address(new WETH9());
         verifySig = address(new VerifySig());
-        arcade = new Arcade(protocol, weth, verifySig);
+
+        // Deploy implementation
+        arcadeImpl = new Arcade();
+
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(Arcade.initialize.selector, protocol, weth, verifySig);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(arcadeImpl), initData);
+        arcade = Arcade(payable(address(proxy)));
+
         token = new Token();
         mulPolicy = address(new MulRewardPolicy());
         giveawayPolicy = address(new GiveawayPolicy());
+        shootPolicy = address(new ShootPolicy());
         (creator, creatorPrivateKey) = makeAddrAndKey("creator");
 
         _deposit(address(token), creator, 100_000_000 ether);
@@ -88,7 +101,7 @@ contract ArcadeTest is Test {
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL1 - TOLL1 / 100 - TOLL1 * 3, "Creator available 1");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL1 - TOLL1 * 3, "Creator available 1");
         assertEq(creatorLocked, prevCreatorLocked + TOLL1 * 3, "Creator locked 1");
         assertEq(gamerAvailable, 0, "Gamer available 1");
         assertEq(gamerLocked, 0, "Gamer locked 1");
@@ -107,7 +120,7 @@ contract ArcadeTest is Test {
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
         (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL3 - TOLL3 / 100 - TOLL3 * 3, "Creator available 2");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL3 - TOLL3 * 3, "Creator available 2");
         assertEq(creatorLocked, prevCreatorLocked + TOLL3 * 3, "Creator locked 2");
         assertEq(gamerAvailable, 0.1 ether, "Gamer available 2");
         assertEq(gamerLocked, 0, "Gamer locked 2");
@@ -125,7 +138,7 @@ contract ArcadeTest is Test {
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
         (gamerAvailable, gamerLocked) = arcade.balance(address(token), gamer1);
 
-        assertEq(creatorAvailable, prevCreatorAvailable + TOLL2 - TOLL2 / 100 - TOLL2 * 3, "Creator available 3");
+        assertEq(creatorAvailable, prevCreatorAvailable + TOLL2 - TOLL2 * 3, "Creator available 3");
         assertEq(creatorLocked, prevCreatorLocked + TOLL2 * 3, "Creator locked 3");
         assertEq(gamerAvailable, 0, "Gamer available 3");
         assertEq(gamerLocked, 0, "Gamer locked 3");
@@ -153,7 +166,6 @@ contract ArcadeTest is Test {
 
         uint256 toll = 0.1 ether;
         uint256 reward = 0.3 ether;
-        uint256 protocolFee = reward * 4 / 100;
         token.mint(gamer1, toll);
         vm.startPrank(gamer1);
         token.approve(address(arcade), toll);
@@ -165,7 +177,7 @@ contract ArcadeTest is Test {
         (, uint256 creatorLocked) = arcade.balance(address(token), creator);
 
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
-        assertEq(gamerAvailable, reward - protocolFee, "Gamer should receive reward minus protocol fee");
+        assertEq(gamerAvailable, reward, "Gamer should receive full reward");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
@@ -184,9 +196,9 @@ contract ArcadeTest is Test {
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
 
-        assertEq(prevCreatorAvailable + 0.1 ether - 0.001 ether - 0.3 ether, creatorAvailable);
+        assertEq(prevCreatorAvailable + 0.1 ether - 0.3 ether, creatorAvailable);
         assertEq(creatorLocked, 0.3 ether);
-        assertEq(gamerAvailable, 0, "Gamer should receive 30% of the reward minus protocol fee");
+        assertEq(gamerAvailable, 0, "Gamer should receive 30% of the reward");
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
 
         (prevCreatorAvailable, prevCreatorLocked) = arcade.balance(address(token), creator);
@@ -200,7 +212,7 @@ contract ArcadeTest is Test {
 
         assertEq(creatorAvailable, prevCreatorAvailable + 0.3 ether - payout);
         assertEq(creatorLocked, 0, "Creator should have no locked balance");
-        assertEq(gamerAvailable, payout - payout * 4 / 100);
+        assertEq(gamerAvailable, payout);
         assertEq(gamerLocked, 0, "Gamer should have no locked balance");
     }
 
@@ -221,12 +233,11 @@ contract ArcadeTest is Test {
         arcade.coin(puzzle, signature, toll);
         vm.stopPrank();
 
-        uint256 protocolFee = toll / 100;
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         assertEq(gamerAvailable, 0);
         assertEq(gamerLocked, 0);
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + (toll - protocolFee) * 2);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll * 2);
         assertEq(creatorLocked, prevCreatorLocked);
     }
 
@@ -397,7 +408,7 @@ contract ArcadeTest is Test {
         arcade.expire(puzzle);
 
         (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator available");
         assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
 
         // Test expire by player.
@@ -410,7 +421,7 @@ contract ArcadeTest is Test {
         arcade.expire(puzzle);
         vm.stopPrank();
         (creatorAvailable, creatorLocked) = arcade.balance(address(token), creator);
-        assertEq(creatorAvailable, prevCreatorAvailable + toll - toll / 100, "Creator available");
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator available");
         assertEq(creatorLocked, prevCreatorLocked, "Creator locked");
     }
 
@@ -450,18 +461,111 @@ contract ArcadeTest is Test {
         (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(address(token), gamer1);
         assertEq(creatorAvailable, prevCreatorAvailable, "Creator available balance should not change");
         assertEq(creatorLocked, prevCreatorLocked - 100 ether, "Creator locked balance should be deducted");
-        assertEq(gamerAvailable, prevGamerAvailable + 96 ether, "Reward should be added to gamer available balance");
+        assertEq(gamerAvailable, prevGamerAvailable + 100 ether, "Reward should be added to gamer available balance");
         assertEq(gamerLocked, prevGamerLocked, "Gamer locked balance should not change");
     }
 
     function testGiveawayIncorrectPlayer() public {
-        (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature) =
-            _giveawayPuzzle(gamer1, 100 ether);
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _giveawayPuzzle(gamer1, 100 ether);
 
         vm.startPrank(gamer2);
         vm.expectRevert("GiveawayPolicy: Player must be whitelisted");
         arcade.coin(puzzle, signature, 0);
         vm.stopPrank();
+    }
+
+    function testShoot() public {
+        // Setup
+        (IArcade.Puzzle memory puzzle, bytes memory signature,,) = _shootPuzzle(gamer1);
+        uint256 toll = 0.1 ether;
+
+        // Fund gamer with ETH
+        vm.deal(gamer1, toll);
+
+        // Record initial balances
+        (uint256 prevCreatorAvailable, uint256 prevCreatorLocked) = arcade.balance(weth, creator);
+
+        // Execute shoot
+        vm.prank(gamer1);
+        arcade.shoot{value: toll}(gamer1, puzzle, signature, toll);
+
+        // Check balances after shoot
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(weth, creator);
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(weth, gamer1);
+
+        // Verify balances
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator should receive toll");
+        assertEq(creatorLocked, prevCreatorLocked, "Creator should have no locked balance");
+        assertEq(gamerAvailable, 0, "Gamer should have no available balance");
+        assertEq(gamerLocked, 0, "Gamer should have no locked balance");
+
+        // Verify WETH balance
+        assertEq(IERC20(weth).balanceOf(address(arcade)), toll, "Arcade should have WETH balance");
+    }
+
+    function testCashOut() public {
+        // Setup
+        uint256 reward = 0.3 ether;
+        (IArcade.Puzzle memory shootPuzzle, bytes memory shootSignature,,) = _shootPuzzle(gamer1);
+        (IArcade.Puzzle memory giveawayPuzzle, bytes memory giveawaySignature,, bytes memory payoutSignature) =
+            _giveawayPuzzleETH(gamer1, reward);
+
+        // Fund creator with WETH
+        vm.deal(creator, reward);
+        vm.prank(creator);
+        arcade.depositETH{value: reward}(creator, reward);
+
+        // Execute cashOut
+        vm.prank(gamer1);
+        arcade.cashOut(gamer1, shootPuzzle, giveawayPuzzle, giveawaySignature, payoutSignature);
+
+        // Check balances after cashOut
+        (uint256 gamerAvailable, uint256 gamerLocked) = arcade.balance(weth, gamer1);
+
+        // Verify balances
+        assertEq(gamerAvailable, 0, "Gamer should have no available WETH");
+        assertEq(gamerLocked, 0, "Gamer should have no locked WETH");
+        assertEq(gamer1.balance, reward, "Gamer should receive ETH reward");
+    }
+
+    function testShootAndCashOut() public {
+        // Setup
+        (IArcade.Puzzle memory shootPuzzle, bytes memory shootSignature,,) = _shootPuzzle(gamer1);
+        uint256 toll = 0.1 ether;
+        uint256 reward = 0.3 ether;
+
+        // Fund gamer with ETH
+        vm.deal(gamer1, toll);
+        vm.deal(creator, reward);
+        vm.prank(creator);
+        arcade.depositETH{value: reward}(creator, reward);
+
+        // Record initial balances
+        uint256 prevGamerETH = gamer1.balance;
+        (uint256 prevCreatorAvailable,) = arcade.balance(weth, creator);
+
+        // Execute shoot
+        vm.prank(gamer1);
+        arcade.shoot{value: toll}(gamer1, shootPuzzle, shootSignature, toll);
+
+        // Check balances after shoot
+        (uint256 creatorAvailable, uint256 creatorLocked) = arcade.balance(weth, creator);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll, "Creator should receive toll");
+        assertEq(creatorLocked, 0, "Creator should have no locked balance");
+
+        // Setup giveaway puzzle for cashOut
+        (IArcade.Puzzle memory giveawayPuzzle, bytes memory giveawaySignature,, bytes memory payoutSignature) =
+            _giveawayPuzzleETH(gamer1, reward);
+
+        // Execute cashOut
+        vm.prank(gamer1);
+        arcade.cashOut(gamer1, shootPuzzle, giveawayPuzzle, giveawaySignature, payoutSignature);
+
+        // Check final balances
+        assertEq(gamer1.balance, prevGamerETH + reward - toll, "Gamer should receive ETH reward");
+        (creatorAvailable, creatorLocked) = arcade.balance(weth, creator);
+        assertEq(creatorAvailable, prevCreatorAvailable + toll - reward, "Creator should receive toll minus reward");
+        assertEq(creatorLocked, 0, "Creator should have no locked balance");
     }
 
     function _deposit(address currency, address gamer, uint256 amount)
@@ -521,6 +625,13 @@ contract ArcadeTest is Test {
         assertEq(IERC20(weth).balanceOf(address(arcade)), prevArcadeBalance - amount);
     }
 
+    function _shootPuzzle(address solver)
+        internal
+        returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
+    {
+        return _puzzle(solver, 0, 1, 3600, weth, shootPolicy, abi.encode(0), bytes32(0));
+    }
+
     function _basicPuzzle(address solver)
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
@@ -566,9 +677,14 @@ contract ArcadeTest is Test {
         internal
         returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
     {
-        return _puzzle(
-            solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(solver, reward), bytes32(uint256(100_000))
-        );
+        return _puzzle(solver, 0, 1, 3600, address(token), giveawayPolicy, abi.encode(solver, reward), bytes32(0));
+    }
+
+    function _giveawayPuzzleETH(address solver, uint256 reward)
+        internal
+        returns (IArcade.Puzzle memory puzzle, bytes memory signature, bytes32 payoutData, bytes memory payoutSignature)
+    {
+        return _puzzle(solver, 0, 1, 3600, weth, giveawayPolicy, abi.encode(solver, reward), bytes32(0));
     }
 
     function _livesPuzzle(address solver, uint32 lives, uint32 winningPlay)
