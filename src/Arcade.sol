@@ -24,8 +24,8 @@ contract Arcade is
 {
     using SafeERC20 for IERC20;
 
-    address public WETH;
-    address public VERIFY_SIG;
+    address public immutable WETH;
+    address public immutable VERIFY_SIG;
     uint256 public constant FEE_PRECISION = 100000;
     bytes32 public constant PUZZLE_TYPEHASH = keccak256(
         "Puzzle(address creator,address answer,uint32 lives,uint64 timeLimit,address currency,uint96 deadline,address rewardPolicy,bytes rewardData)"
@@ -47,13 +47,17 @@ contract Arcade is
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
-    function initialize(address _owner, address _weth, address _verifySig) public initializer {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _weth, address _verifySig) {
+        WETH = _weth;
+        VERIFY_SIG = _verifySig;
+    }
+
+    function initialize(address _owner) public initializer {
         __Ownable_init(_owner);
         __ReentrancyGuard_init();
         __EIP712_init("Arcade", "1");
 
-        WETH = _weth;
-        VERIFY_SIG = _verifySig;
         creatorFee = 0; // Initial fee 0 bps
         payoutFee = 0; // Initial fee 0 bps
     }

@@ -3,15 +3,13 @@ pragma solidity ^0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {Arcade} from "../src/Arcade.sol";
-import {ShootPolicy} from "../src/ShootPolicy.sol";
-import {GiveawayPolicy} from "../src/GiveawayPolicy.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {console} from "forge-std/console.sol";
 
 contract DeployScript is Script {
     function prepare() public {
         vm.startBroadcast(vm.envUint("DEPLOYER_PRIVATE_KEY"));
-        Arcade arcade = new Arcade();
+        Arcade arcade = new Arcade(vm.envAddress("WETH_ADDRESS"), vm.envAddress("VERIFY_SIG"));
         vm.stopBroadcast();
         console.log("Arcade:", address(arcade));
     }
@@ -26,23 +24,15 @@ contract DeployScript is Script {
                     arcade,
                     abi.encodeWithSelector(
                         Arcade.initialize.selector,
-                        vm.envAddress("PROTOCOL_OWNER"),
-                        vm.envAddress("WETH_ADDRESS"),
-                        vm.envAddress("VERIFY_SIG")
+                        vm.envAddress("PROTOCOL_OWNER")
                     )
                 )
             )
         );
 
-        // Deploy policies
-        address shootPolicy = address(new ShootPolicy());
-        address giveawayPolicy = address(new GiveawayPolicy());
-
         vm.stopBroadcast();
 
         console.log("Arcade:", address(a));
-        console.log("ShootPolicy:", shootPolicy);
-        console.log("GiveawayPolicy:", giveawayPolicy);
         console.log("Owner:", vm.envAddress("PROTOCOL_OWNER"));
     }
 }
